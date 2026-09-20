@@ -125,7 +125,7 @@ One DynamoDB table, on-demand billing. Every user-owned item has `pk = USER#<cog
 Indexes:
 
 - **GSI1** `gsi1pk`/`gsi1sk`: SETTINGS items carry `gsi1pk = ACTIVE_USER`, `gsi1sk = <sub>` when `active = true`. The poller queries this to enumerate users.
-- **GSI2** `gsi2pk`/`gsi2sk`: MATCH items carry `gsi2pk = USER#<sub>`, `gsi2sk = <status>#<postedAt>`. Used by the Jobs feed (filter by status, newest first) and by the "retry unsent" step.
+- **GSI2** `gsi2pk`/`gsi2sk`: MATCH items carry `gsi2pk = USER#<sub>#<status>`, `gsi2sk = <postedAt>`. One query per feed tab (newest first) and for the "retry unsent" step (`USER#<sub>#pending`).
 
 MATCH items have a `ttl` attribute = `createdAt + 60 days`. RUN items: `ttl = startedAt + 30 days`. CHAT items: `ttl = createdAt + 60 days`, matching their MATCH.
 
@@ -195,7 +195,9 @@ ScoreResult {                        // what the LLM returns
 
 Match {
   job: Job
-  status: 'filtered' | 'scored' | 'notified'
+  status: 'filtered' | 'scored' | 'pending' | 'notified'
+                                     // filtered: pre-filter rejected · scored: LLM score below threshold
+                                     // pending: score ≥ threshold, Telegram delivery not yet confirmed · notified: delivered
   filterReason?: string              // e.g. 'budget_below_min', 'stop_word:wordpress', 'language', 'stale'
   score?: ScoreResult
   verdict?: 'strong' | 'maybe' | 'no' // derived in code: ≥80 strong, 50–79 maybe, <50 no
@@ -239,7 +241,7 @@ runForUser(userId, trigger):
   if !settings.telegram.chatId or !settings.telegram.tokenSet: record 'telegram_not_configured'; finish run; return
 
   // 1. retry unsent from previous runs
-  for m in store.listMatches(userId, status='scored') where m.score.score >= settings.notifyThreshold:
+  for m in store.listMatches(userId, status='pending'):
     notify(m)
 
   // 2. per platform
@@ -251,9 +253,10 @@ runForUser(userId, trigger):
       reason = preFilter(job, profile, settings)
       if reason: store.putMatch(userId, job, { status: 'filtered', filterReason: reason }); continue
       result = scorer.score(job, profile, settings.model)     // Bedrock
-      store.putMatch(userId, job, { status: 'scored', score: result, verdict })
+      status = result.score >= settings.notifyThreshold ? 'pending' : 'scored'
+      store.putMatch(userId, job, { status, score: result, verdict })
       run.usage += result.usage
-      if result.score >= settings.notifyThreshold: notify(match)
+      if status == 'pending': notify(match)
     record perPlatform counts
 
   store.finishRun(run)
@@ -402,7 +405,7 @@ Routes:
   3. **Upwork** — disabled; link to API access application.
   4. **Matching & AI** — notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown, `active` toggle.
   5. **Prompts** — two textareas (*Scoring prompt*, *Chat prompt*) pre-filled with the shipped default or the user's override; a hint listing the available `{{placeholders}}`; per-field **Reset to default**; **Preview** renders the template with the real profile and a bundled sample job and shows the exact text the model will receive. Below: **Quick actions** editor — rows of label + text, add/remove/reorder, max 8, **Reset to default**.
-- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `scored` / `filtered`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
+- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
 - Header: user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out.
 
@@ -484,7 +487,7 @@ Frontend deploy is a script (`pnpm deploy:web`): `vite build` → `aws s3 sync -
 | Platform API error / 429 | Adapter aborts for this run; error recorded in RUN `perPlatform.<p>.error`; other adapters and users continue. Retried naturally next schedule. |
 | Bedrock throttling / 5xx | SDK retries (max 3, exponential backoff). Persistent failure → job left unscored (no MATCH written), retried next run; error counted in RUN. |
 | Invalid LLM output (zod fails) | Same as above; logged with the raw tool input for debugging. |
-| Telegram send error | MATCH stays `scored`; picked up by the "retry unsent" step next run. |
+| Telegram send error | MATCH stays `pending`; picked up by the "retry unsent" step next run. |
 | Telegram not configured | Run records `telegram_not_configured` and skips fetching (no point paying for scoring). |
 | Webhook secret mismatch | 403, no processing, logged. |
 | Chat turn: Bedrock error after SDK retries | 502 `{ error }`; nothing is appended to the CHAT item, so the user can resend. |
