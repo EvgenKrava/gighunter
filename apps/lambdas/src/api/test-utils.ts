@@ -30,3 +30,7 @@ export function makeApiDeps(overrides: Partial<Record<keyof ApiDeps, unknown>> &
 export const authed = (sub = 'u1', email = 'me@example.com') => ({ event: { requestContext: { authorizer: { jwt: { claims: { sub, email } } } } } })
 export const anonymous = () => ({ event: { requestContext: {} } })
 export const json = (body: unknown, method = 'POST') => ({ method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+
+/** Response.json() is typed `unknown` by lib.dom in TS 5.9+; tests assert on shape, so `any` is the honest type here. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const body = (res: Response): Promise<any> => res.json()
