@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`formatMatchMessage > renders score, budget, hours, why, risks, links and buttons 1`] = `
+"🎯 <b>82/100</b> · Fix Stripe webhook retries in a Next.js app
+💰 $150–300 USD fixed · ⏱ ~3h · Freelancer
+<b>Why:</b> Exact Next.js + Stripe match, closed scope with a clear deliverable and tests.
+<b>Risks:</b> Repo state unknown; Client may expect ongoing support
+🔗 <a href="https://www.freelancer.com/projects/sample-1">Open job</a> · 💬 <a href="https://gighunter.onlytools.click/jobs/freelancer/sample-1">Chat in GigHunter</a>"
+`;
