@@ -7,7 +7,7 @@
 
 GigHunter is a personal-first, multi-user-ready web app that watches freelance platforms for small "evening gigs" that match a developer's profile and pushes the good ones to that developer's Telegram bot with an AI-generated score and explanation.
 
-A user configures a profile (structured skills + free text), connects their own platform API tokens and their own Telegram bot on a Settings page, and the system polls the platforms every 15 minutes, filters, scores each new job with Claude on Bedrock, and notifies.
+A user configures a profile (structured skills + free text), connects their own platform API tokens and their own Telegram bot on a Settings page, and the system polls the platforms every 15 minutes, filters, scores each new job with Claude on Bedrock, and notifies. Every found job also has its own chat with Claude, pre-loaded with the app's purpose, the user's profile, the job and the score, so the user can draft a proposal or cover letter, estimate effort, or ask questions without re-explaining context.
 
 ### Goals
 
@@ -26,7 +26,8 @@ See §17.
 |---|---|
 | Platforms | Adapter interface. v1 implements **Freelancer.com** (open REST API). Upwork adapter stubbed until an API key is granted. |
 | Matching strategy | Deterministic fetch → pre-filter → per-job LLM scoring. No autonomous agent loop. |
-| LLM | **Amazon Bedrock**, Claude **Haiku 4.5** by default; model id is a per-user setting. |
+| LLM | **Amazon Bedrock**, Claude **Haiku 4.5** by default; scoring model and chat model are separate per-user settings. |
+| Per-job chat | Each MATCH has one conversation stored as a single DynamoDB item; non-streaming request/response through the API Lambda; quick-action prompts (proposal, estimate, questions). |
 | Pipeline orchestration | Single poller Lambda iterating over active users (monolithic pipeline). SQS fan-out deferred until >10 users or long runs. |
 | Poll cadence | EventBridge Scheduler, every 15 minutes. |
 | Frontend | TanStack Router + Vite SPA, static on S3 + CloudFront. TanStack Query, TanStack Form, Tailwind. |
@@ -76,7 +77,7 @@ Four Lambdas, one table, one HTTP API, one CloudFront distribution, one Cognito 
 gighunter/
 ├── apps/
 │   ├── web/                    # TanStack Router + Vite SPA
-│   │   └── src/routes/         # file-based routes: login, profile, settings, jobs
+│   │   └── src/routes/         # file-based routes: login, profile, settings, jobs, jobs/$platform/$id
 │   └── lambdas/                # thin handlers only; all logic lives in packages/core
 │       ├── poller/
 │       ├── api/
@@ -84,10 +85,11 @@ gighunter/
 │       └── pre-signup/
 ├── packages/
 │   └── core/                   # domain logic; no HTTP/Lambda types in public interfaces
-│       ├── schema/             # zod: Profile, Settings, Job, Match, Run, ScoreResult
+│       ├── schema/             # zod: Profile, Settings, Job, Match, Run, Chat, ScoreResult
 │       ├── adapters/           # JobSource interface, freelancer/, upwork/ (stub)
 │       ├── filter/             # deterministic pre-filter
 │       ├── scorer/             # prompt builder + Bedrock client + response validation
+│       ├── chat/               # per-job chat: system prompt builder + turn runner
 │       ├── notifier/           # Telegram message formatter + Bot API client
 │       ├── store/              # DynamoDB repository (the only module that knows pk/sk)
 │       ├── secrets/            # SSM parameter read/write helpers
@@ -115,13 +117,16 @@ One DynamoDB table, on-demand billing. Every user-owned item has `pk = USER#<cog
 | `USER#<sub>` | `SETTINGS` | Settings (secrets are *not* stored here, only flags/hints) |
 | `USER#<sub>` | `MATCH#<platform>#<externalId>` | Match: denormalized job + score + status + feedback |
 | `USER#<sub>` | `RUN#<startedAtIso>` | Run: per-run stats and token usage |
+| `USER#<sub>` | `CHAT#<platform>#<externalId>` | Chat: full message history for one match |
 
 Indexes:
 
 - **GSI1** `gsi1pk`/`gsi1sk`: SETTINGS items carry `gsi1pk = ACTIVE_USER`, `gsi1sk = <sub>` when `active = true`. The poller queries this to enumerate users.
 - **GSI2** `gsi2pk`/`gsi2sk`: MATCH items carry `gsi2pk = USER#<sub>`, `gsi2sk = <status>#<postedAt>`. Used by the Jobs feed (filter by status, newest first) and by the "retry unsent" step.
 
-MATCH items have a `ttl` attribute = `createdAt + 60 days`. RUN items: `ttl = startedAt + 30 days`.
+MATCH items have a `ttl` attribute = `createdAt + 60 days`. RUN items: `ttl = startedAt + 30 days`. CHAT items: `ttl = createdAt + 60 days`, matching their MATCH.
+
+A chat is one item (not one item per message) because the whole history is sent to the model on every turn anyway and there is no concurrent writer per user. Guard: a chat is capped at 200 messages or 300 KB serialized; beyond that the API returns 409 and the UI offers **Reset chat**.
 
 Jobs are denormalized into MATCH items rather than stored once in a shared `JOB#…` item. A shared job cache can be added later without migrating existing items.
 
@@ -143,7 +148,8 @@ Settings {
   active: boolean                    // poller processes this user
   notifyThreshold: number            // 0–100, default 70
   maxJobAgeHours: number             // ignore jobs older than this, default 24
-  model: string                      // Bedrock model id, default 'anthropic.claude-haiku-4-5' (see §9)
+  model: string                      // scoring model, Bedrock id, default 'anthropic.claude-haiku-4-5' (see §9)
+  chatModel: string                  // per-job chat model, default same as `model`; user may pick a stronger one
   telegram: {
     tokenSet: boolean; tokenHint?: string     // last 4 chars of the bot token
     botUsername?: string
@@ -195,6 +201,13 @@ Run {
   perPlatform: Record<string, { fetched: number; new: number; filtered: number; scored: number; notified: number; error?: string }>
   usage: { inputTokens: number; outputTokens: number }
   errors: string[]
+  ttl: number
+}
+
+Chat {
+  messages: { role: 'user' | 'assistant'; content: string; at: string }[]   // plain text only in v1
+  usage: { inputTokens: number; outputTokens: number }                       // cumulative for this chat
+  createdAt: string; updatedAt: string
   ttl: number
 }
 ```
@@ -276,9 +289,13 @@ Evaluated in order; the first hit wins and becomes `filterReason`:
 
 Hourly jobs and jobs with `budget = null` skip the budget rules; the LLM judges them.
 
-## 9. LLM scoring
+## 9. LLM usage
 
-- Client: `AnthropicBedrockMantle` from `@anthropic-ai/bedrock-sdk`, region `us-east-1`, IAM auth via the Lambda role.
+Both uses share one Bedrock client factory in `packages/core`: `AnthropicBedrockMantle` from `@anthropic-ai/bedrock-sdk`, region `us-east-1`, IAM auth via the Lambda role.
+
+### 9.1 Scoring (poller)
+
+- Client: shared factory above.
 - Model: `settings.model`, default `anthropic.claude-haiku-4-5`. The exact Bedrock model id string is confirmed against `aws bedrock list-foundation-models` during implementation; the default is stored in one constant.
 - No extended thinking (classification task). `max_tokens: 1024`.
 - **System prompt** (stable across jobs for the same user, first content block marked with `cache_control: { type: 'ephemeral' }`; caching may not engage below the model's minimum cacheable prefix — harmless):
@@ -288,6 +305,20 @@ Hourly jobs and jobs with `budget = null` skip the budget rules; the LLM judges 
 - **User message**: the normalized job as a compact labelled block (title, budget, skills, client stats, posted, description).
 - **Output**: forced tool use — one tool `score_job` with `strict: true` and an input schema generated from `ScoreResult` zod schema; `tool_choice: { type: 'tool', name: 'score_job' }`. Tool input is parsed with `JSON.parse` semantics via the SDK and validated with zod; validation failure counts as a scoring error for that job (job stays unscored and is retried next run).
 - Token usage from `response.usage` is accumulated into the RUN item.
+
+### 9.2 Per-job chat (api Lambda)
+
+- Model: `settings.chatModel`. Adaptive thinking is left off for Haiku (it takes `budget_tokens`, not needed here); if the user selects an Opus/Sonnet 4.6+ model, the chat module passes `thinking: { type: 'adaptive' }`. `max_tokens: 4096`.
+- **System prompt**, first block marked `cache_control: { type: 'ephemeral' }` (stable for the life of the chat):
+  - What GigHunter is and what the user is doing: looking for small, well-scoped side gigs to do in the evenings, often with an AI coding assistant.
+  - The user's profile (same rendering as §9.1).
+  - The job (title, url, budget, skills, client stats, posted, full description).
+  - Our score, verdict, reasoning, estimated hours and risks (or the filter reason if the job was filtered).
+  - Instructions: write in the user's voice, be concrete, keep proposals short (the platforms favour brevity), never invent experience the profile does not support, ask for missing facts instead of guessing.
+- **Turn**: `messages = chat.messages + [{ role: 'user', content }]` → one non-streaming `messages.create` → append both the user message and the assistant text to the CHAT item → return the assistant text. If the model stops on `max_tokens`, the reply is returned as-is with a `truncated: true` flag the UI shows.
+- **Quick actions** are ordinary user messages with preset text, sent by UI buttons: *Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*. They are stored in the chat like any other message.
+- Non-streaming is deliberate: API Gateway HTTP API cannot stream Lambda responses; Haiku answers a proposal-sized reply in a few seconds. Streaming via a Lambda Function URL is a v2 option.
+- Usage is accumulated into `chat.usage`.
 
 ## 10. Telegram
 
@@ -321,9 +352,11 @@ HTML parse mode:
 💰 $150–300 fixed · ⏱ ~3h · Freelancer
 <b>Why:</b> exact Next.js + Stripe match, closed scope, tests included.
 <b>Risks:</b> new client, 0 reviews.
-🔗 <a href="…">Open job</a>
+🔗 <a href="…">Open job</a> · 💬 <a href="<APP_URL>/jobs/freelancer/123">Chat in GigHunter</a>
 [ 👍 Useful ]  [ 👎 Not for me ]
 ```
+
+`APP_URL` (the CloudFront origin) is a poller environment variable.
 
 Inline keyboard `callback_data = fb:<platform>:<externalId>:up|down` (≤ 64 bytes).
 
@@ -341,8 +374,9 @@ Routes:
   1. **Telegram** — BotFather steps; token input; status: bot `@name` ✓ · webhook ✓ · chat: *title* ✓; **Send test message** button; manual chat id override.
   2. **Freelancer.com** — developer portal steps; token input; status: connected as *username*; `enabled` toggle; search query.
   3. **Upwork** — disabled; link to API access application.
-  4. **Matching** — notify threshold slider (default 70), max job age, model dropdown, `active` toggle.
-- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `scored` / `filtered`), score, verdict badge, reasoning, risks, feedback marker, link. Below: last 10 RUNs with per-platform counts, token usage, errors.
+  4. **Matching & AI** — notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown, `active` toggle.
+- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `scored` / `filtered`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
+- `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
 - Header: user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out.
 
 Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No component library.
@@ -356,13 +390,17 @@ All routes require a valid Cognito JWT (API Gateway JWT authorizer). `sub` is ta
 | GET | `/me` | `{ sub, email }` |
 | GET / PUT | `/profile` | Profile (PUT validates with zod, 400 on error) |
 | GET | `/settings` | Settings with secret fields masked |
-| PATCH | `/settings` | `active`, `notifyThreshold`, `maxJobAgeHours`, `model`, `platforms.freelancer.{enabled,query}`, `telegram.chatId` |
+| PATCH | `/settings` | `active`, `notifyThreshold`, `maxJobAgeHours`, `model`, `chatModel`, `platforms.freelancer.{enabled,query}`, `telegram.chatId` |
 | PUT | `/settings/telegram/token` | see §10.1 |
 | DELETE | `/settings/telegram/token` | see §10.1 |
 | POST | `/settings/telegram/test` | sends "GigHunter test message" to `chatId` |
 | PUT | `/settings/freelancer/token` | `verifyToken` → SSM `/gighunter/users/<sub>/freelancer/token`, update SETTINGS |
 | DELETE | `/settings/freelancer/token` | remove parameter, clear fields |
 | GET | `/matches?status=&cursor=` | page of MATCH items, newest first |
+| GET | `/matches/{platform}/{id}` | one MATCH plus its CHAT (empty if none) |
+| POST | `/matches/{platform}/{id}/feedback` | `{ feedback: 'up' \| 'down' }` — same effect as the Telegram buttons |
+| POST | `/matches/{platform}/{id}/chat` | `{ message }` → runs one turn (§9.2) → `{ reply, truncated, usage }`; 404 if the MATCH does not exist; 409 if the chat is at its cap |
+| DELETE | `/matches/{platform}/{id}/chat` | deletes the CHAT item |
 | GET | `/runs?limit=` | recent RUN items |
 | POST | `/runs` | async-invoke poller with `{ trigger: 'manual', userId }` → 202 |
 
@@ -397,13 +435,13 @@ Non-secret config is passed as Lambda environment variables (table name, API bas
 `infra/main` (backend `s3`, `use_lockfile = true`):
 
 - DynamoDB table `gighunter` (on-demand, PITR on, TTL attribute `ttl`, GSI1, GSI2).
-- Four Lambda functions (`nodejs22.x`, `arm64`), each from `archive_file` over `apps/lambdas/dist/<name>/`, `source_code_hash` set, CloudWatch log groups with 14-day retention.
+- Four Lambda functions (`nodejs22.x`, `arm64`), each from `archive_file` over `apps/lambdas/dist/<name>/`, `source_code_hash` set, CloudWatch log groups with 14-day retention. The api Lambda gets a 29 s timeout (API Gateway's maximum) to accommodate chat turns.
 - EventBridge Scheduler schedule `rate(15 minutes)` → poller.
 - API Gateway HTTP API: JWT authorizer (Cognito), `$default` route → api Lambda, `POST /telegram/webhook/{userId}` → tg-webhook Lambda (no auth), CORS.
 - Cognito User Pool, Google IdP, app client, Hosted UI domain, pre-sign-up trigger wiring.
 - S3 bucket (private) + CloudFront distribution with OAC, default root `index.html`, 403/404 → `/index.html` (SPA fallback).
 - SNS topic + email subscription; CloudWatch alarm on poller `Errors ≥ 1` over 1 hour.
-- IAM roles per Lambda with least privilege: Bedrock `InvokeModel` on the Anthropic model ARNs in `us-east-1` only; DynamoDB actions on the one table and its indexes; SSM per §14; api Lambda may `lambda:InvokeFunction` on the poller.
+- IAM roles per Lambda with least privilege: Bedrock `InvokeModel` on the Anthropic model ARNs in `us-east-1` only (poller and api Lambdas); DynamoDB actions on the one table and its indexes; SSM per §14; api Lambda may `lambda:InvokeFunction` on the poller.
 
 Variables: `project` (default `gighunter`), `aws_profile` (default `yevhenii`), `region` (default `us-east-1`), `google_client_id`, `google_client_secret` (sensitive), `alarm_email`. Single environment in v1.
 
@@ -419,6 +457,8 @@ Frontend deploy is a script (`pnpm deploy:web`): `vite build` → `aws s3 sync -
 | Telegram send error | MATCH stays `scored`; picked up by the "retry unsent" step next run. |
 | Telegram not configured | Run records `telegram_not_configured` and skips fetching (no point paying for scoring). |
 | Webhook secret mismatch | 403, no processing, logged. |
+| Chat turn: Bedrock error after SDK retries | 502 `{ error }`; nothing is appended to the CHAT item, so the user can resend. |
+| Chat turn: API Gateway 29 s timeout | UI shows "took too long, try a shorter request or a faster model"; the CHAT item is unchanged (append happens only after a successful reply). |
 | Overlapping scheduled runs | Prevented by `reserved_concurrent_executions = 1`. |
 | Poller crash | CloudWatch alarm → SNS email. |
 
@@ -426,13 +466,14 @@ All Lambdas log structured JSON (`{ level, userId?, event, ... }`) via a tiny lo
 
 ## 17. Out of scope (v1)
 
-Upwork adapter implementation (interface and settings stub only; API key application should be submitted now since approval takes weeks) · Djinni/RSS sources · proposal/cover-letter drafts · résumé import from PDF/LinkedIn · feeding feedback into the prompt · invites/admin UI · per-user LLM quotas · Telegram deep-link account linking · custom domain · dev/prod environment split · SQS fan-out.
+Upwork adapter implementation (interface and settings stub only; API key application should be submitted now since approval takes weeks) · Djinni/RSS sources · manual job import by pasting a URL · streaming chat replies · attachments/images in chat · résumé import from PDF/LinkedIn · feeding feedback into the prompt · invites/admin UI · per-user LLM quotas · Telegram deep-link account linking · custom domain · dev/prod environment split · SQS fan-out.
 
 ## 18. Testing
 
 - **Unit (vitest, `packages/core`)**
   - `filter`: table-driven cases for every `filterReason` and pass-through.
   - `scorer`: mocked Bedrock client; asserts prompt assembly, forced tool call, zod validation, usage accounting, error mapping.
+  - `chat`: mocked Bedrock client; asserts system prompt contains profile/job/score, history is passed in order, append-only-on-success, cap enforcement (409), `truncated` flag on `max_tokens`.
   - `adapters/freelancer`: HTTP mocked with recorded fixtures; asserts normalization and 429/5xx handling.
   - `notifier`: message formatter snapshot; callback_data length ≤ 64.
   - `store`: key construction and GSI attribute derivation (pure functions), plus DynamoDB Local-free tests via a mocked DocumentClient.
@@ -440,7 +481,7 @@ Upwork adapter implementation (interface and settings stub only; API key applica
 - **Handlers (`apps/lambdas`)**: tg-webhook secret check and update routing; api route validation and user scoping; pre-signup allowlist.
 - **Contract script** `pnpm freelancer:probe` — hits the real API with a local token, prints the normalized jobs, refreshes fixtures on demand.
 - **Local run** `pnpm poller:local -- --user <sub> [--dry-run]` — runs `runForUser` against the deployed DynamoDB/Bedrock from the laptop; `--dry-run` skips Telegram sends and DB writes.
-- **Web**: vitest + Testing Library for the Profile and Settings forms (validation, masked secrets, status rendering). No e2e in v1.
+- **Web**: vitest + Testing Library for the Profile and Settings forms (validation, masked secrets, status rendering) and the chat panel (quick actions send preset text, input disabled while pending, reset confirmation). No e2e in v1.
 
 ## 19. Cost estimate (single active user)
 
@@ -455,6 +496,7 @@ Upwork adapter implementation (interface and settings stub only; API key applica
 | SSM Parameter Store (standard) | free | free |
 | CloudWatch logs (14-day retention) | ~$0 | <$0.50 |
 | Bedrock, Haiku 4.5, ~30 scored jobs/day | $0 | ~$1–3 |
+| Bedrock, per-job chat (user-initiated, ~2–4K cached input + ~500 output per turn) | $0 | cents per chat on Haiku; ~$0.05–0.10 per chat on Sonnet 5 |
 
 Expected total: **≈ $0–1/month idle, ≈ $2–5/month in active use.**
 
