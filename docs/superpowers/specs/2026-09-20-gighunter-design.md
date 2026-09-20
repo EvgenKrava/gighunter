@@ -31,7 +31,8 @@ See §17.
 | Prompts | Scoring prompt, chat prompt and quick actions are per-user templates editable in the UI, with shipped defaults and `{{placeholders}}` for context injection. Output schemas stay code-defined. |
 | Pipeline orchestration | Single poller Lambda iterating over active users (monolithic pipeline). SQS fan-out deferred until >10 users or long runs. |
 | Poll cadence | EventBridge Scheduler, every 15 minutes. |
-| Frontend | TanStack Router + Vite SPA, static on S3 + CloudFront. TanStack Query, TanStack Form, Tailwind. |
+| Frontend | TanStack Router + Vite SPA, static on S3 + CloudFront at **https://gighunter.onlytools.click**. TanStack Query, TanStack Form, Tailwind. Public landing page at `/`, app behind login. |
+| Domain | `gighunter.onlytools.click` — Route53 zone `onlytools.click` already exists in the account (`Z0516204CSXC7Z2EC0FW`); ACM certificate in `us-east-1` with DNS validation; CloudFront alias. |
 | Auth | Cognito User Pool with Google identity provider; Pre-sign-up Lambda trigger enforcing an email allowlist. |
 | API | API Gateway HTTP API + Cognito JWT authorizer → single Lambda running Hono. |
 | Storage | One DynamoDB table (on-demand), single-table design, user-scoped partition keys. |
@@ -385,7 +386,7 @@ HTML parse mode:
 [ 👍 Useful ]  [ 👎 Not for me ]
 ```
 
-`APP_URL` (the CloudFront origin) is a poller environment variable.
+`APP_URL` (`https://gighunter.onlytools.click`) is a poller environment variable.
 
 Inline keyboard `callback_data = fb:<platform>:<externalId>:up|down` (≤ 64 bytes).
 
@@ -397,7 +398,8 @@ Inline keyboard `callback_data = fb:<platform>:<externalId>:up|down` (≤ 64 byt
 
 Routes:
 
-- `/login` — button → Cognito Hosted UI (Google). Uses `react-oidc-context` (authorization code + PKCE). Tokens in memory + session storage.
+- `/` — **public landing page**: one screen, no data fetching. Product name and one-line pitch ("Your evening-gig radar: AI-scored freelance jobs, delivered to your Telegram"), three short feature blurbs (profile-based matching · per-job chat that drafts proposals · your own bot, your own keys), a **Sign in with Google** button that starts the Cognito flow, and a footer with the GitHub link. If the visitor is already signed in, the button reads **Open app** and links to `/jobs`. Static content lives in the route file; no CMS, no analytics in v1.
+- `/login` — kept as the OIDC callback/redirect handler only (the Sign-in button on `/` starts the flow). Uses `react-oidc-context` (authorization code + PKCE). Tokens in memory + session storage. After login, redirects to `/jobs` (or the originally requested route).
 - `/profile` — form bound to `Profile` zod schema: display name, skills list (name + level), budget min/max, max hours, languages, stop words, free text.
 - `/settings` — four blocks, each: short step-by-step instructions (static markdown in the app) → inputs → action button → status line. Secrets are write-only; after save the UI shows `✓ set ···<hint>` and a Remove button.
   1. **Telegram** — BotFather steps; token input; status: bot `@name` ✓ · webhook ✓ · chat: *title* ✓; **Send test message** button; manual chat id override.
@@ -407,7 +409,8 @@ Routes:
   5. **Prompts** — two textareas (*Scoring prompt*, *Chat prompt*) pre-filled with the shipped default or the user's override; a hint listing the available `{{placeholders}}`; per-field **Reset to default**; **Preview** renders the template with the real profile and a bundled sample job and shows the exact text the model will receive. Below: **Quick actions** editor — rows of label + text, add/remove/reorder, max 8, **Reset to default**.
 - `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
-- Header: user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out.
+- App routes (`/profile`, `/settings`, `/jobs`, `/jobs/$platform/$id`) sit under an authenticated layout route; an unauthenticated visitor is redirected to `/`.
+- Header (app layout only): user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out.
 
 Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No component library.
 
@@ -439,11 +442,11 @@ All routes require a valid Cognito JWT (API Gateway JWT authorizer). `sub` is ta
 
 Public (no authorizer): `POST /telegram/webhook/{userId}` → tg-webhook Lambda.
 
-Errors: JSON `{ error: string }` with 400/403/404/500. CORS restricted to the CloudFront origin.
+Errors: JSON `{ error: string }` with 400/403/404/500. CORS restricted to `https://gighunter.onlytools.click` (+ `http://localhost:5173` for dev).
 
 ## 13. Auth
 
-- Cognito User Pool; Google as identity provider (client id/secret supplied to Terraform via `TF_VAR_google_client_secret`, never committed). Cognito-prefixed Hosted UI domain. One public app client: authorization code + PKCE, callback/logout URLs = CloudFront origin (+ `http://localhost:5173` for dev).
+- Cognito User Pool; Google as identity provider (client id/secret supplied to Terraform via `TF_VAR_google_client_secret`, never committed). Cognito-prefixed Hosted UI domain. One public app client: authorization code + PKCE, callback URL `https://gighunter.onlytools.click/login`, logout URL `https://gighunter.onlytools.click/` (+ `http://localhost:5173/login` and `http://localhost:5173/` for dev). The Google OAuth app's authorized redirect URI is the Cognito domain's `/oauth2/idpresponse`.
 - **Pre-sign-up Lambda trigger**: reads `/gighunter/auth/allowed-emails` (comma-separated) from SSM; if the incoming email is not listed, throws → Cognito rejects sign-up. Listed emails are auto-confirmed. This is the v1 gate against arbitrary Google accounts consuming Bedrock budget.
 - API Gateway JWT authorizer validates the ID token; the API Lambda reads `sub` and `email` from `requestContext.authorizer.jwt.claims`.
 
@@ -472,11 +475,12 @@ Non-secret config is passed as Lambda environment variables (table name, API bas
 - EventBridge Scheduler schedule `rate(15 minutes)` → poller.
 - API Gateway HTTP API: JWT authorizer (Cognito), `$default` route → api Lambda, `POST /telegram/webhook/{userId}` → tg-webhook Lambda (no auth), CORS.
 - Cognito User Pool, Google IdP, app client, Hosted UI domain, pre-sign-up trigger wiring.
-- S3 bucket (private) + CloudFront distribution with OAC, default root `index.html`, 403/404 → `/index.html` (SPA fallback).
+- ACM certificate for `gighunter.onlytools.click` in `us-east-1`, DNS-validated through Route53 records Terraform creates in the existing `onlytools.click` zone (looked up by name with `data "aws_route53_zone"`, not managed).
+- S3 bucket (private) + CloudFront distribution with OAC, alias `gighunter.onlytools.click`, the ACM certificate (TLS 1.2+, SNI), default root `index.html`, 403/404 → `/index.html` (SPA fallback). Route53 `A` and `AAAA` alias records pointing at the distribution.
 - SNS topic + email subscription; CloudWatch alarm on poller `Errors ≥ 1` over 1 hour.
 - IAM roles per Lambda with least privilege: `bedrock:InvokeModel` on `arn:aws:bedrock:*::foundation-model/anthropic.*` and `arn:aws:bedrock:*:<account>:inference-profile/*anthropic*` (poller and api Lambdas; `global.` inference profiles route across regions, so the foundation-model resource cannot be pinned to one region); DynamoDB actions on the one table and its indexes; SSM per §14; api Lambda may `lambda:InvokeFunction` on the poller.
 
-Variables: `project` (default `gighunter`), `aws_profile` (default `yevhenii`), `region` (default `us-east-1`), `google_client_id`, `google_client_secret` (sensitive), `alarm_email`. Single environment in v1.
+Variables: `project` (default `gighunter`), `aws_profile` (default `yevhenii`), `region` (default `us-east-1`), `domain_name` (default `gighunter.onlytools.click`), `hosted_zone_name` (default `onlytools.click`), `google_client_id`, `google_client_secret` (sensitive), `alarm_email`. Single environment in v1.
 
 Frontend deploy is a script (`pnpm deploy:web`): `vite build` → `aws s3 sync --delete` → CloudFront invalidation. Terraform does not manage bucket objects.
 
@@ -499,7 +503,7 @@ All Lambdas log structured JSON (`{ level, userId?, event, ... }`) via a tiny lo
 
 ## 17. Out of scope (v1)
 
-Upwork adapter implementation (interface and settings stub only; API key application should be submitted now since approval takes weeks) · Djinni/RSS sources · manual job import by pasting a URL · streaming chat replies · attachments/images in chat · résumé import from PDF/LinkedIn · feeding feedback into the prompt · invites/admin UI · per-user LLM quotas · Telegram deep-link account linking · custom domain · dev/prod environment split · SQS fan-out.
+Upwork adapter implementation (interface and settings stub only; API key application should be submitted now since approval takes weeks) · Djinni/RSS sources · manual job import by pasting a URL · streaming chat replies · attachments/images in chat · résumé import from PDF/LinkedIn · feeding feedback into the prompt · invites/admin UI · per-user LLM quotas · Telegram deep-link account linking · dev/prod environment split · SQS fan-out · landing-page analytics or CMS.
 
 ## 18. Testing
 
