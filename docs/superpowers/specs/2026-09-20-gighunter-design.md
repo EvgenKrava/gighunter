@@ -151,7 +151,7 @@ Settings {
   active: boolean                    // poller processes this user
   notifyThreshold: number            // 0–100, default 70
   maxJobAgeHours: number             // ignore jobs older than this, default 24
-  model: string                      // scoring model, Bedrock id, default 'anthropic.claude-haiku-4-5' (see §9)
+  model: string                      // scoring model, Bedrock id, default 'global.anthropic.claude-haiku-4-5-20251001-v1:0' (see §9)
   chatModel: string                  // per-job chat model, default same as `model`; user may pick a stronger one
   telegram: {
     tokenSet: boolean; tokenHint?: string     // last 4 chars of the bot token
@@ -301,7 +301,12 @@ Hourly jobs and jobs with `budget = null` skip the budget rules; the LLM judges 
 
 ## 9. LLM usage
 
-Both uses share one Bedrock client factory in `packages/core`: `AnthropicBedrockMantle` from `@anthropic-ai/bedrock-sdk`, region `us-east-1`, IAM auth via the Lambda role.
+Both uses share one Bedrock client factory in `packages/core` (`createBedrockClient(modelId)`), using `@anthropic-ai/bedrock-sdk` with IAM auth from the Lambda role and `AWS_REGION`. Bedrock serves Claude models on two stacks, so the factory picks the client by model id:
+
+- ARN-versioned ids (contain `-v1:0`, e.g. Haiku 4.5, Sonnet 4.5, Opus 4.6 and earlier) → legacy `AnthropicBedrock` client (InvokeModel path). Top-level automatic caching is rejected there; explicit `cache_control` blocks work.
+- Everything else (Opus 4.7+, Opus 5, Sonnet 5, Fable) → `AnthropicBedrockMantle` (Messages-API endpoint).
+
+Model ids use the `global.` inference-profile prefix (dynamic routing, no regional pricing premium). Default: `global.anthropic.claude-haiku-4-5-20251001-v1:0`.
 
 ### 9.0 Prompt templates
 
@@ -317,14 +322,14 @@ Both system prompts are per-user templates (`PROMPTS` item, §5.1) rendered by `
 ### 9.1 Scoring (poller)
 
 - Client: shared factory above.
-- Model: `settings.model`, default `anthropic.claude-haiku-4-5`. The exact Bedrock model id string is confirmed against `aws bedrock list-foundation-models` during implementation; the default is stored in one constant.
+- Model: `settings.model`, default `global.anthropic.claude-haiku-4-5-20251001-v1:0`, stored in one constant (`DEFAULT_MODEL`).
 - No extended thinking (classification task). `max_tokens: 1024`.
 - **System prompt** = rendered `prompts.scoring` template (§9.0), one content block marked `cache_control: { type: 'ephemeral' }` (caching may not engage below the model's minimum cacheable prefix — harmless). The shipped default contains:
   - Role: you evaluate freelance job posts for a specific developer looking for small, well-scoped evening side gigs (`{{app_context}}`).
   - `{{profile}}` — skills with levels, budget range, max hours, languages, free text.
   - Scoring rubric: strong match = closed scope, clear deliverable, fits within max hours, matches skills at `solid`/`expert` level or is straightforwardly solvable with an AI coding assistant; penalize long-term engagements, vague scope, "we need a team", unrealistic budget-to-effort ratio, suspicious clients.
 - **User message**: `{{job}}` rendered as a compact labelled block (title, budget, skills, client stats, posted, description). The job goes in the user turn, not the system prompt, so the system prefix stays cacheable across jobs.
-- **Output**: forced tool use — one tool `score_job` with `strict: true` and an input schema generated from `ScoreResult` zod schema; `tool_choice: { type: 'tool', name: 'score_job' }`. Tool input is parsed with `JSON.parse` semantics via the SDK and validated with zod; validation failure counts as a scoring error for that job (job stays unscored and is retried next run).
+- **Output**: structured outputs — `client.messages.parse({ output_config: { format: zodOutputFormat(ScoreResultSchema) } })`; `response.parsed_output` is the validated `ScoreResult` (null → scoring error for that job: it stays unscored and is retried next run). Fallback if Bedrock rejects `output_config` for the selected model: one tool `score_job` with `strict: true`, `tool_choice: { type: 'tool', name: 'score_job' }`, input validated with zod.
 - Token usage from `response.usage` is accumulated into the RUN item.
 
 ### 9.2 Per-job chat (api Lambda)
@@ -466,7 +471,7 @@ Non-secret config is passed as Lambda environment variables (table name, API bas
 - Cognito User Pool, Google IdP, app client, Hosted UI domain, pre-sign-up trigger wiring.
 - S3 bucket (private) + CloudFront distribution with OAC, default root `index.html`, 403/404 → `/index.html` (SPA fallback).
 - SNS topic + email subscription; CloudWatch alarm on poller `Errors ≥ 1` over 1 hour.
-- IAM roles per Lambda with least privilege: Bedrock `InvokeModel` on the Anthropic model ARNs in `us-east-1` only (poller and api Lambdas); DynamoDB actions on the one table and its indexes; SSM per §14; api Lambda may `lambda:InvokeFunction` on the poller.
+- IAM roles per Lambda with least privilege: `bedrock:InvokeModel` on `arn:aws:bedrock:*::foundation-model/anthropic.*` and `arn:aws:bedrock:*:<account>:inference-profile/*anthropic*` (poller and api Lambdas; `global.` inference profiles route across regions, so the foundation-model resource cannot be pinned to one region); DynamoDB actions on the one table and its indexes; SSM per §14; api Lambda may `lambda:InvokeFunction` on the poller.
 
 Variables: `project` (default `gighunter`), `aws_profile` (default `yevhenii`), `region` (default `us-east-1`), `google_client_id`, `google_client_secret` (sensitive), `alarm_email`. Single environment in v1.
 
@@ -531,6 +536,5 @@ Expected total: **≈ $0–1/month idle, ≈ $2–5/month in active use.**
 These are defaults that are confirmed (not decided) during implementation; each has a stated fallback:
 
 - Freelancer API query parameters and response fields (§7) — verified via `freelancer:probe`; fixtures updated accordingly.
-- Bedrock model id for Haiku 4.5 (§9) — verified via `aws bedrock list-foundation-models --by-provider anthropic`; the constant is updated.
 - Lambda runtime: `nodejs22.x` is the default; if `nodejs24.x` is available in `us-east-1` at implementation time, use it.
-- Forced tool use with `strict: true` on Bedrock for Haiku 4.5 — if unsupported, drop `strict` and rely on zod validation.
+- Structured outputs (`output_config.format`) on Bedrock for Haiku 4.5 — confirmed with the first real scoring call; if rejected, the forced strict tool fallback in §9.1 is used.
