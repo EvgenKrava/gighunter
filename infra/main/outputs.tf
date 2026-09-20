@@ -1,0 +1,11 @@
+output "api_url" { value = aws_apigatewayv2_api.main.api_endpoint }
+output "app_url" { value = local.app_url }
+output "cloudfront_domain" { value = aws_cloudfront_distribution.web.domain_name }
+output "cloudfront_distribution_id" { value = aws_cloudfront_distribution.web.id }
+output "web_bucket" { value = aws_s3_bucket.web.bucket }
+output "table_name" { value = aws_dynamodb_table.main.name }
+output "poller_function_name" { value = aws_lambda_function.poller.function_name }
+output "cognito_user_pool_id" { value = aws_cognito_user_pool.main.id }
+output "cognito_client_id" { value = aws_cognito_user_pool_client.web.id }
+output "cognito_domain" { value = "${aws_cognito_user_pool_domain.main.domain}.auth.${var.region}.amazoncognito.com" }
+output "google_redirect_uri" { value = "https://${aws_cognito_user_pool_domain.main.domain}.auth.${var.region}.amazoncognito.com/oauth2/idpresponse" }

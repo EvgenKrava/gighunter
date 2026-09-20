@@ -11,7 +11,8 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "poller:local": "tsx scripts/poller-local.ts",
     "seed:user": "tsx scripts/seed-user.ts",
-    "freelancer:probe": "tsx scripts/freelancer-probe.ts"
+    "freelancer:probe": "tsx scripts/freelancer-probe.ts",
+    "deploy:web": "scripts/deploy-web.sh"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
