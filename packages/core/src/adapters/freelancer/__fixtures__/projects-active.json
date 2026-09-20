@@ -1,0 +1,53 @@
+{
+  "status": "success",
+  "result": {
+    "projects": [
+      {
+        "id": 39876543,
+        "owner_id": 12345678,
+        "title": "Fix Stripe webhook retries in Next.js app",
+        "status": "active",
+        "seo_url": "nextjs/Fix-Stripe-webhook-retries-39876543",
+        "currency": { "id": 1, "code": "USD", "sign": "$" },
+        "description": "Our Next.js 14 app double-processes Stripe webhook events after retries. Need idempotency keys in Postgres (Prisma) and a small test.",
+        "jobs": [{ "id": 1, "name": "Next.js" }, { "id": 2, "name": "Stripe" }],
+        "submitdate": 1789896000,
+        "time_updated": 1789896000,
+        "type": "fixed",
+        "budget": { "minimum": 150, "maximum": 300 },
+        "language": "en"
+      },
+      {
+        "id": 39876544,
+        "owner_id": 22222222,
+        "title": "Ongoing React developer",
+        "status": "active",
+        "seo_url": "react/Ongoing-React-developer-39876544",
+        "currency": { "id": 1, "code": "USD", "sign": "$" },
+        "description": "Need a React developer for ongoing work, 20h/week.",
+        "jobs": [{ "id": 3, "name": "React" }],
+        "submitdate": 1789897000,
+        "time_updated": 1789897000,
+        "type": "hourly",
+        "budget": { "minimum": 15, "maximum": 25 },
+        "language": "en"
+      }
+    ],
+    "users": {
+      "12345678": {
+        "id": 12345678, "username": "acme_inc",
+        "location": { "country": { "name": "United States", "code": "us" } },
+        "status": { "payment_verified": true },
+        "employer_reputation": { "entire_history": { "overall": 4.8, "reviews": 12 } }
+      },
+      "22222222": {
+        "id": 22222222, "username": "newbie",
+        "location": { "country": { "name": "Germany", "code": "de" } },
+        "status": { "payment_verified": false },
+        "employer_reputation": { "entire_history": { "overall": 0, "reviews": 0 } }
+      }
+    },
+    "total_count": 2
+  },
+  "request_id": "fixture"
+}
