@@ -28,6 +28,7 @@ See §17.
 | Matching strategy | Deterministic fetch → pre-filter → per-job LLM scoring. No autonomous agent loop. |
 | LLM | **Amazon Bedrock**, Claude **Haiku 4.5** by default; scoring model and chat model are separate per-user settings. |
 | Per-job chat | Each MATCH has one conversation stored as a single DynamoDB item; non-streaming request/response through the API Lambda; quick-action prompts (proposal, estimate, questions). |
+| Prompts | Scoring prompt, chat prompt and quick actions are per-user templates editable in the UI, with shipped defaults and `{{placeholders}}` for context injection. Output schemas stay code-defined. |
 | Pipeline orchestration | Single poller Lambda iterating over active users (monolithic pipeline). SQS fan-out deferred until >10 users or long runs. |
 | Poll cadence | EventBridge Scheduler, every 15 minutes. |
 | Frontend | TanStack Router + Vite SPA, static on S3 + CloudFront. TanStack Query, TanStack Form, Tailwind. |
@@ -85,11 +86,12 @@ gighunter/
 │       └── pre-signup/
 ├── packages/
 │   └── core/                   # domain logic; no HTTP/Lambda types in public interfaces
-│       ├── schema/             # zod: Profile, Settings, Job, Match, Run, Chat, ScoreResult
+│       ├── schema/             # zod: Profile, Settings, Prompts, Job, Match, Run, Chat, ScoreResult
 │       ├── adapters/           # JobSource interface, freelancer/, upwork/ (stub)
 │       ├── filter/             # deterministic pre-filter
-│       ├── scorer/             # prompt builder + Bedrock client + response validation
-│       ├── chat/               # per-job chat: system prompt builder + turn runner
+│       ├── prompts/            # default templates, placeholder rendering, validation
+│       ├── scorer/             # Bedrock call for scoring + response validation
+│       ├── chat/               # per-job chat turn runner
 │       ├── notifier/           # Telegram message formatter + Bot API client
 │       ├── store/              # DynamoDB repository (the only module that knows pk/sk)
 │       ├── secrets/            # SSM parameter read/write helpers
@@ -115,6 +117,7 @@ One DynamoDB table, on-demand billing. Every user-owned item has `pk = USER#<cog
 |---|---|---|
 | `USER#<sub>` | `PROFILE` | Profile |
 | `USER#<sub>` | `SETTINGS` | Settings (secrets are *not* stored here, only flags/hints) |
+| `USER#<sub>` | `PROMPTS` | Prompt template overrides (absent field = shipped default) |
 | `USER#<sub>` | `MATCH#<platform>#<externalId>` | Match: denormalized job + score + status + feedback |
 | `USER#<sub>` | `RUN#<startedAtIso>` | Run: per-run stats and token usage |
 | `USER#<sub>` | `CHAT#<platform>#<externalId>` | Chat: full message history for one match |
@@ -160,6 +163,13 @@ Settings {
     freelancer: { enabled: boolean; query: string; tokenSet: boolean; tokenHint?: string; connectedAs?: string }
     upwork:     { enabled: false }            // stub in v1
   }
+  updatedAt: string
+}
+
+Prompts {                            // every field optional; missing = use default from packages/core/prompts/defaults.ts
+  scoring?: string                   // system prompt template for §9.1, ≤ 8000 chars
+  chat?: string                      // system prompt template for §9.2, ≤ 8000 chars
+  quickActions?: { label: string; text: string }[]   // 1–8 entries, label ≤ 40 chars, text ≤ 2000 chars
   updatedAt: string
 }
 
@@ -293,30 +303,41 @@ Hourly jobs and jobs with `budget = null` skip the budget rules; the LLM judges 
 
 Both uses share one Bedrock client factory in `packages/core`: `AnthropicBedrockMantle` from `@anthropic-ai/bedrock-sdk`, region `us-east-1`, IAM auth via the Lambda role.
 
+### 9.0 Prompt templates
+
+Both system prompts are per-user templates (`PROMPTS` item, §5.1) rendered by `packages/core/prompts`:
+
+- Placeholders: `{{app_context}}` (fixed paragraph describing GigHunter and the "evening gig" goal), `{{profile}}` (rendered Profile), `{{job}}` (rendered Job), `{{score}}` (rendered ScoreResult/verdict, or the filter reason; chat template only). Rendering is plain string substitution; no logic, no loops.
+- Safety rule: if a template omits `{{profile}}` or `{{job}}` (or `{{score}}` for chat), the missing block is appended at the end under a heading, so context is never lost by an editing mistake.
+- Defaults live in `packages/core/prompts/defaults.ts` and are the source of truth; the UI shows them read-only when no override is set and offers **Reset to default** per field.
+- Validation (zod): length limits per §5.1, templates must not be blank, quick-action labels unique.
+- The output contract is **not** editable: scoring always uses the fixed `score_job` tool schema, and the chat always returns free text. Users tune judgement and style, not the data shape.
+- Templates are rendered on every use (each scoring call, each chat turn), so an edit applies immediately, including to existing chats. Changing a template invalidates that user's prompt cache prefix — expected and harmless.
+
 ### 9.1 Scoring (poller)
 
 - Client: shared factory above.
 - Model: `settings.model`, default `anthropic.claude-haiku-4-5`. The exact Bedrock model id string is confirmed against `aws bedrock list-foundation-models` during implementation; the default is stored in one constant.
 - No extended thinking (classification task). `max_tokens: 1024`.
-- **System prompt** (stable across jobs for the same user, first content block marked with `cache_control: { type: 'ephemeral' }`; caching may not engage below the model's minimum cacheable prefix — harmless):
-  - Role: you evaluate freelance job posts for a specific developer looking for small, well-scoped evening side gigs.
-  - The developer's profile: skills with levels, budget range, max hours, languages, free text.
-  - Scoring rubric: strong match = closed scope, clear deliverable, fits within `maxHours`, matches skills at `solid`/`expert` level or is straightforwardly solvable with an AI coding assistant; penalize long-term engagements, vague scope, "we need a team", unrealistic budget-to-effort ratio, suspicious clients.
-- **User message**: the normalized job as a compact labelled block (title, budget, skills, client stats, posted, description).
+- **System prompt** = rendered `prompts.scoring` template (§9.0), one content block marked `cache_control: { type: 'ephemeral' }` (caching may not engage below the model's minimum cacheable prefix — harmless). The shipped default contains:
+  - Role: you evaluate freelance job posts for a specific developer looking for small, well-scoped evening side gigs (`{{app_context}}`).
+  - `{{profile}}` — skills with levels, budget range, max hours, languages, free text.
+  - Scoring rubric: strong match = closed scope, clear deliverable, fits within max hours, matches skills at `solid`/`expert` level or is straightforwardly solvable with an AI coding assistant; penalize long-term engagements, vague scope, "we need a team", unrealistic budget-to-effort ratio, suspicious clients.
+- **User message**: `{{job}}` rendered as a compact labelled block (title, budget, skills, client stats, posted, description). The job goes in the user turn, not the system prompt, so the system prefix stays cacheable across jobs.
 - **Output**: forced tool use — one tool `score_job` with `strict: true` and an input schema generated from `ScoreResult` zod schema; `tool_choice: { type: 'tool', name: 'score_job' }`. Tool input is parsed with `JSON.parse` semantics via the SDK and validated with zod; validation failure counts as a scoring error for that job (job stays unscored and is retried next run).
 - Token usage from `response.usage` is accumulated into the RUN item.
 
 ### 9.2 Per-job chat (api Lambda)
 
 - Model: `settings.chatModel`. Adaptive thinking is left off for Haiku (it takes `budget_tokens`, not needed here); if the user selects an Opus/Sonnet 4.6+ model, the chat module passes `thinking: { type: 'adaptive' }`. `max_tokens: 4096`.
-- **System prompt**, first block marked `cache_control: { type: 'ephemeral' }` (stable for the life of the chat):
-  - What GigHunter is and what the user is doing: looking for small, well-scoped side gigs to do in the evenings, often with an AI coding assistant.
-  - The user's profile (same rendering as §9.1).
-  - The job (title, url, budget, skills, client stats, posted, full description).
-  - Our score, verdict, reasoning, estimated hours and risks (or the filter reason if the job was filtered).
+- **System prompt** = rendered `prompts.chat` template (§9.0), one block marked `cache_control: { type: 'ephemeral' }` (stable for the life of the chat unless the user edits the template). The shipped default contains:
+  - `{{app_context}}` — what GigHunter is and what the user is doing: looking for small, well-scoped side gigs to do in the evenings, often with an AI coding assistant.
+  - `{{profile}}`.
+  - `{{job}}` — title, url, budget, skills, client stats, posted, full description.
+  - `{{score}}` — score, verdict, reasoning, estimated hours and risks (or the filter reason if the job was filtered).
   - Instructions: write in the user's voice, be concrete, keep proposals short (the platforms favour brevity), never invent experience the profile does not support, ask for missing facts instead of guessing.
 - **Turn**: `messages = chat.messages + [{ role: 'user', content }]` → one non-streaming `messages.create` → append both the user message and the assistant text to the CHAT item → return the assistant text. If the model stops on `max_tokens`, the reply is returned as-is with a `truncated: true` flag the UI shows.
-- **Quick actions** are ordinary user messages with preset text, sent by UI buttons: *Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*. They are stored in the chat like any other message.
+- **Quick actions** are ordinary user messages with preset text, sent by UI buttons. They come from `prompts.quickActions`; the shipped default is *Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*. They are stored in the chat like any other message.
 - Non-streaming is deliberate: API Gateway HTTP API cannot stream Lambda responses; Haiku answers a proposal-sized reply in a few seconds. Streaming via a Lambda Function URL is a v2 option.
 - Usage is accumulated into `chat.usage`.
 
@@ -375,6 +396,7 @@ Routes:
   2. **Freelancer.com** — developer portal steps; token input; status: connected as *username*; `enabled` toggle; search query.
   3. **Upwork** — disabled; link to API access application.
   4. **Matching & AI** — notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown, `active` toggle.
+  5. **Prompts** — two textareas (*Scoring prompt*, *Chat prompt*) pre-filled with the shipped default or the user's override; a hint listing the available `{{placeholders}}`; per-field **Reset to default**; **Preview** renders the template with the real profile and a bundled sample job and shows the exact text the model will receive. Below: **Quick actions** editor — rows of label + text, add/remove/reorder, max 8, **Reset to default**.
 - `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `scored` / `filtered`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
 - Header: user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out.
@@ -391,6 +413,9 @@ All routes require a valid Cognito JWT (API Gateway JWT authorizer). `sub` is ta
 | GET / PUT | `/profile` | Profile (PUT validates with zod, 400 on error) |
 | GET | `/settings` | Settings with secret fields masked |
 | PATCH | `/settings` | `active`, `notifyThreshold`, `maxJobAgeHours`, `model`, `chatModel`, `platforms.freelancer.{enabled,query}`, `telegram.chatId` |
+| GET | `/prompts` | `{ defaults, overrides }` |
+| PUT | `/prompts` | partial update of `scoring` / `chat` / `quickActions`; `null` resets a field to default; zod-validated |
+| POST | `/prompts/preview` | `{ kind: 'scoring' \| 'chat', template }` → `{ rendered }` using the caller's profile and a bundled sample job/score |
 | PUT | `/settings/telegram/token` | see §10.1 |
 | DELETE | `/settings/telegram/token` | see §10.1 |
 | POST | `/settings/telegram/test` | sends "GigHunter test message" to `chatId` |
@@ -473,7 +498,8 @@ Upwork adapter implementation (interface and settings stub only; API key applica
 - **Unit (vitest, `packages/core`)**
   - `filter`: table-driven cases for every `filterReason` and pass-through.
   - `scorer`: mocked Bedrock client; asserts prompt assembly, forced tool call, zod validation, usage accounting, error mapping.
-  - `chat`: mocked Bedrock client; asserts system prompt contains profile/job/score, history is passed in order, append-only-on-success, cap enforcement (409), `truncated` flag on `max_tokens`.
+  - `prompts`: placeholder substitution, missing-placeholder append rule, validation limits, defaults round-trip (rendering the default with a sample profile/job matches a snapshot).
+  - `chat`: mocked Bedrock client; asserts the rendered template is used as the system prompt, history is passed in order, append-only-on-success, cap enforcement (409), `truncated` flag on `max_tokens`.
   - `adapters/freelancer`: HTTP mocked with recorded fixtures; asserts normalization and 429/5xx handling.
   - `notifier`: message formatter snapshot; callback_data length ≤ 64.
   - `store`: key construction and GSI attribute derivation (pure functions), plus DynamoDB Local-free tests via a mocked DocumentClient.
@@ -481,7 +507,7 @@ Upwork adapter implementation (interface and settings stub only; API key applica
 - **Handlers (`apps/lambdas`)**: tg-webhook secret check and update routing; api route validation and user scoping; pre-signup allowlist.
 - **Contract script** `pnpm freelancer:probe` — hits the real API with a local token, prints the normalized jobs, refreshes fixtures on demand.
 - **Local run** `pnpm poller:local -- --user <sub> [--dry-run]` — runs `runForUser` against the deployed DynamoDB/Bedrock from the laptop; `--dry-run` skips Telegram sends and DB writes.
-- **Web**: vitest + Testing Library for the Profile and Settings forms (validation, masked secrets, status rendering) and the chat panel (quick actions send preset text, input disabled while pending, reset confirmation). No e2e in v1.
+- **Web**: vitest + Testing Library for the Profile and Settings forms (validation, masked secrets, status rendering), the Prompts block (reset/preview, quick-action editor limits) and the chat panel (quick actions send the configured text, input disabled while pending, reset confirmation). No e2e in v1.
 
 ## 19. Cost estimate (single active user)
 
