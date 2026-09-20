@@ -27,3 +27,9 @@ crash.log
 .DS_Store
 .idea/
 .vscode/
+
+# local seed data (contains tokens)
+seed*.json
+!scripts/seed.example.json
+# terraform build artifacts
+infra/**/.build/
