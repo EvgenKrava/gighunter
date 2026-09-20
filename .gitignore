@@ -1,0 +1,29 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.output/
+*.tsbuildinfo
+
+# env / local config
+.env
+.env.*
+!.env.example
+
+# terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+crash.log
+
+# lambda artifacts
+*.zip
+
+# editors / os
+.DS_Store
+.idea/
+.vscode/
