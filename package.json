@@ -1,0 +1,22 @@
+{
+  "name": "gighunter",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.4.2",
+  "scripts": {
+    "build": "pnpm --filter @gighunter/lambdas build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "poller:local": "tsx scripts/poller-local.ts",
+    "seed:user": "tsx scripts/seed-user.ts",
+    "freelancer:probe": "tsx scripts/freelancer-probe.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.0"
+  }
+}

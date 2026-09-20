@@ -1,0 +1,37 @@
+{
+  "name": "@gighunter/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./prompts": "./src/prompts/index.ts",
+    "./filter": "./src/filter/index.ts",
+    "./llm": "./src/llm/index.ts",
+    "./scorer": "./src/scorer/index.ts",
+    "./chat": "./src/chat/index.ts",
+    "./notifier": "./src/notifier/index.ts",
+    "./store": "./src/store/index.ts",
+    "./secrets": "./src/secrets/index.ts",
+    "./adapters": "./src/adapters/index.ts",
+    "./services": "./src/services/index.ts",
+    "./pipeline": "./src/pipeline/index.ts",
+    "./logger": "./src/logger.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.33.7",
+    "@anthropic-ai/sdk": "^0.127.0",
+    "@aws-sdk/client-dynamodb": "^3.1136.0",
+    "@aws-sdk/client-ssm": "^3.1136.0",
+    "@aws-sdk/lib-dynamodb": "^3.1136.0",
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "aws-sdk-client-mock": "^4.1.0"
+  }
+}
