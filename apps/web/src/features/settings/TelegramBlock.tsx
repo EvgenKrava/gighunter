@@ -31,12 +31,12 @@ export function TelegramBlock({ settings, onPatch }: { settings: PublicSettings;
         <div className="space-y-2 text-sm">
           <p>Bot <span className="font-medium">@{t.botUsername}</span> ✓ · webhook ✓ · chat: {t.chatId ? <span className="font-medium">{t.chatTitle ?? t.chatId} ✓</span> : <span className="text-amber-700">waiting for /start</span>}</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" size="sm" disabled={!t.chatId} loading={test.isPending} onClick={() => test.mutate(undefined, { onSuccess: () => toast('Test message sent', 'success'), onError: (e) => toast(e.message, 'error') })}>Send test message</Button>
+            <Button variant="secondary" disabled={!t.chatId} loading={test.isPending} onClick={() => test.mutate(undefined, { onSuccess: () => toast('Test message sent', 'success'), onError: (e) => toast(e.message, 'error') })}>Send test message</Button>
           </div>
           <Details summary="Set chat id manually">
             <div className="flex gap-2">
               <TextInput aria-label="Chat id" className="mt-0" inputMode="numeric" placeholder="-1001234567890" value={chatId} onChange={(e) => setChatId(e.target.value)} />
-              <Button size="sm" variant="secondary" onClick={() => onPatch({ telegram: { chatId: chatId.trim() } })} disabled={!chatId.trim()}>Save</Button>
+              <Button variant="secondary" onClick={() => onPatch({ telegram: { chatId: chatId.trim() } })} disabled={!chatId.trim()}>Save</Button>
             </div>
           </Details>
         </div>

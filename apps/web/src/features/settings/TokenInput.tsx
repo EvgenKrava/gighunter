@@ -12,7 +12,7 @@ export function TokenInput({ label, placeholder, tokenSet, tokenHint, onSave, on
     return (
       <div className="flex items-center gap-3">
         <span className="text-sm">✓ {label} set <span className="font-mono text-slate-500">···{tokenHint ?? '????'}</span></span>
-        <Button variant="ghost" size="sm" className="ml-auto text-red-700" onClick={() => setConfirm(true)}>Remove</Button>
+        <Button variant="ghost" className="ml-auto text-red-700" onClick={() => setConfirm(true)}>Remove</Button>
         <ConfirmDialog open={confirm} title={`Remove ${label}?`} body="Polling and notifications that depend on it stop until you add a new one." confirmLabel="Remove token" danger onCancel={() => setConfirm(false)} onConfirm={() => { setConfirm(false); void run(onRemove) }} />
       </div>
     )
