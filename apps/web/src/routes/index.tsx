@@ -25,7 +25,7 @@ export function Landing() {
       <p className="mt-3 max-w-xl text-lg text-slate-600 dark:text-slate-300">AI-scored freelance jobs that fit a few free hours, delivered to your Telegram — with a chat that writes the proposal for you.</p>
       <div className="mt-6">
         {user ? (
-          <Link to="/jobs" className="inline-flex min-h-12 items-center rounded-lg bg-brand px-5 text-base font-medium text-white">Open app</Link>
+          <Link to="/jobs" search={{ status: 'notified' }} className="inline-flex min-h-12 items-center rounded-lg bg-brand px-5 text-base font-medium text-white">Open app</Link>
         ) : (
           <Button onClick={onSignIn} loading={isLoading} className="min-h-12 px-5">Sign in with Google</Button>
         )}

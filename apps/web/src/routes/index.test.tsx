@@ -18,6 +18,6 @@ describe('Landing', () => {
   it('shows Open app when signed in', () => {
     setAuth(mockAuth())
     renderWithProviders(<Landing />)
-    expect(screen.getByRole('link', { name: /open app/i })).toHaveAttribute('href', '/jobs')
+    expect(screen.getByRole('link', { name: /open app/i })).toHaveAttribute('href', '/jobs?status=notified')
   })
 })

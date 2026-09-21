@@ -18,7 +18,7 @@ export function AppShell({ user, children }: { user: { email: string }; children
       {/* Desktop header */}
       <header className="sticky top-0 z-40 hidden border-b border-slate-200 bg-white/90 backdrop-blur md:block dark:border-slate-800 dark:bg-slate-950/90">
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2">
-          <Link to="/jobs" className="mr-4 text-lg font-semibold text-brand">GigHunter</Link>
+          <Link to="/jobs" search={{ status: 'notified' }} className="mr-4 text-lg font-semibold text-brand">GigHunter</Link>
           {nav.map(({ to, label }) => <Link key={to} to={to} className={linkClass}>{label}</Link>)}
           <div className="ml-auto flex items-center gap-2">
             <RunNowButton />
@@ -29,7 +29,7 @@ export function AppShell({ user, children }: { user: { email: string }; children
       </header>
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur md:hidden dark:border-slate-800 dark:bg-slate-950/90">
-        <Link to="/jobs" className="text-lg font-semibold text-brand">GigHunter</Link>
+        <Link to="/jobs" search={{ status: 'notified' }} className="text-lg font-semibold text-brand">GigHunter</Link>
         <span className="ml-auto min-w-0 max-w-[40%] truncate text-xs text-slate-500">{user.email}</span>
         <div className="flex items-center gap-2">
           <RunNowButton compact />

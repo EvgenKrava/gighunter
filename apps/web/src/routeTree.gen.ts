@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppJobsIndexRouteImport } from './routes/_app.jobs.index'
+import { Route as AppJobsPlatformIdRouteImport } from './routes/_app.jobs.$platform.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -45,6 +46,11 @@ const AppJobsIndexRoute = AppJobsIndexRouteImport.update({
   path: '/jobs/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppJobsPlatformIdRoute = AppJobsPlatformIdRouteImport.update({
+  id: '/jobs/$platform/$id',
+  path: '/jobs/$platform/$id',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/jobs/': typeof AppJobsIndexRoute
+  '/jobs/$platform/$id': typeof AppJobsPlatformIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/jobs': typeof AppJobsIndexRoute
+  '/jobs/$platform/$id': typeof AppJobsPlatformIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -68,12 +76,15 @@ export interface FileRoutesById {
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/jobs/': typeof AppJobsIndexRoute
+  '/_app/jobs/$platform/$id': typeof AppJobsPlatformIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/login' | '/profile' | '/settings' | '/jobs/'
+  fullPaths:
+    '/' | '/login' | '/profile' | '/settings' | '/jobs/' | '/jobs/$platform/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/profile' | '/settings' | '/jobs'
+  to:
+    '/' | '/login' | '/profile' | '/settings' | '/jobs' | '/jobs/$platform/$id'
   id:
     | '__root__'
     | '/'
@@ -82,6 +93,7 @@ export interface FileRouteTypes {
     | '/_app/profile'
     | '/_app/settings'
     | '/_app/jobs/'
+    | '/_app/jobs/$platform/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -134,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppJobsIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/jobs/$platform/$id': {
+      id: '/_app/jobs/$platform/$id'
+      path: '/jobs/$platform/$id'
+      fullPath: '/jobs/$platform/$id'
+      preLoaderRoute: typeof AppJobsPlatformIdRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -141,12 +160,14 @@ interface AppRouteChildren {
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppJobsIndexRoute: typeof AppJobsIndexRoute
+  AppJobsPlatformIdRoute: typeof AppJobsPlatformIdRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppJobsIndexRoute: AppJobsIndexRoute,
+  AppJobsPlatformIdRoute: AppJobsPlatformIdRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
