@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react'
 import type { QuickAction } from '@gighunter/core/schema'
 import { usePreviewPrompt, usePrompts, useSavePrompts } from '../../api/hooks'
@@ -47,10 +47,19 @@ function PromptEditor({ kind, label, defaultText, override }: { kind: 'scoring' 
   )
 }
 
+let seq = 0
+const nextId = () => (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : String(++seq))
+type QuickActionRow = QuickAction & { id: string }
+const withIds = (items: QuickAction[]): QuickActionRow[] => items.map((a) => ({ ...a, id: nextId() }))
+
 function QuickActionsEditor({ defaults, override }: { defaults: QuickAction[]; override?: QuickAction[] }) {
   const save = useSavePrompts(); const toast = useToast()
-  const [items, setItems] = useState<QuickAction[]>(override ?? defaults)
-  useEffect(() => { setItems(override ?? defaults) }, [override, defaults])
+  // Assign ids once per distinct server snapshot (not on every effect fire, which always runs once on
+  // mount) — otherwise the mount-time resync below would regenerate ids for the same data, changing every
+  // row's `key` right after the initial paint and detaching the just-rendered DOM nodes from the document.
+  const serverItems = useMemo(() => withIds(override ?? defaults), [override, defaults])
+  const [items, setItems] = useState<QuickActionRow[]>(serverItems)
+  useEffect(() => { setItems(serverItems) }, [serverItems])
   const update = (i: number, patch: Partial<QuickAction>) => setItems(items.map((it, j) => (j === i ? { ...it, ...patch } : it)))
   const move = (i: number, d: -1 | 1) => { const j = i + d; if (j < 0 || j >= items.length) return; const next = [...items]; const tmp = next[i]!; next[i] = next[j]!; next[j] = tmp; setItems(next) }
   const ok = () => toast('Saved', 'success'); const fail = (e: Error) => toast(e.message, 'error')
@@ -61,20 +70,20 @@ function QuickActionsEditor({ defaults, override }: { defaults: QuickAction[]; o
       <p className="text-sm text-slate-500">Buttons in the job chat that send a preset message. Up to 8.</p>
       <ul className="space-y-3">
         {items.map((a, i) => (
-          <li key={i} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+          <li key={a.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <TextInput aria-label={`Action ${i + 1} label`} className="mt-0" placeholder="Label" maxLength={40} value={a.label} onChange={(e) => update(i, { label: e.target.value })} />
-              <button type="button" aria-label="Move up" className="grid h-11 w-9 place-items-center text-slate-500" onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
-              <button type="button" aria-label="Move down" className="grid h-11 w-9 place-items-center text-slate-500" onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
-              <button type="button" aria-label="Remove action" className="grid h-11 w-9 place-items-center text-red-600" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 size={16} /></button>
+              <button type="button" aria-label="Move up" className="grid h-11 w-11 place-items-center text-slate-500" onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
+              <button type="button" aria-label="Move down" className="grid h-11 w-11 place-items-center text-slate-500" onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
+              <button type="button" aria-label="Remove action" className="grid h-11 w-11 place-items-center text-red-600" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 size={16} /></button>
             </div>
             <Textarea aria-label={`Action ${i + 1} text`} className="mt-2 min-h-16" placeholder="Message sent to the assistant" maxLength={2000} value={a.text} onChange={(e) => update(i, { text: e.target.value })} />
           </li>
         ))}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" disabled={items.length >= 8} onClick={() => setItems([...items, { label: '', text: '' }])}>Add action</Button>
-        <Button disabled={!valid} loading={save.isPending} onClick={() => save.mutate({ quickActions: items.map((a) => ({ label: a.label.trim(), text: a.text.trim() })) }, { onSuccess: ok, onError: fail })}>Save actions</Button>
+        <Button variant="secondary" disabled={items.length >= 8} onClick={() => setItems([...items, { id: nextId(), label: '', text: '' }])}>Add action</Button>
+        <Button disabled={!valid} loading={save.isPending} onClick={() => save.mutate({ quickActions: items.map(({ label, text }) => ({ label: label.trim(), text: text.trim() })) }, { onSuccess: ok, onError: fail })}>Save actions</Button>
         {override && <Button variant="ghost" onClick={() => save.mutate({ quickActions: null }, { onSuccess: ok, onError: fail })}>Reset to default</Button>}
       </div>
     </div>
