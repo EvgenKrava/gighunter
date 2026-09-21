@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Syncs the built SPA (or the placeholder) to the web bucket and invalidates CloudFront.
+# Syncs the built SPA to the web bucket and invalidates CloudFront.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SRC="${1:-apps/web/dist}"
-[ -d "$SRC" ] || SRC="apps/web/public"
+if [ ! -d "$SRC" ]; then
+  echo "run pnpm build:web first"
+  exit 1
+fi
 BUCKET=$(cd infra/main && terraform output -raw web_bucket)
 DIST=$(cd infra/main && terraform output -raw cloudfront_distribution_id)
 aws s3 sync "$SRC" "s3://$BUCKET" --delete --profile yevhenii

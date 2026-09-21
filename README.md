@@ -20,13 +20,22 @@ pnpm typecheck
 pnpm build          # esbuild bundles into apps/lambdas/dist/<fn>/index.mjs
 ```
 
+### Web app
+
+```bash
+pnpm dev:web            # http://localhost:5173 — signs in against the real Cognito pool (localhost is an allowed callback)
+pnpm --filter @gighunter/web test
+```
+
+Deploy: `pnpm build:web && pnpm deploy:web`. The app is a PWA — on a phone, use “Add to Home Screen”.
+
 ## Deploy
 
 See [`infra/README.md`](infra/README.md). Short version, after the one-time bootstrap:
 
 ```bash
 pnpm build && (cd infra/main && terraform apply)   # backend: Lambdas + everything else
-pnpm deploy:web                                    # frontend: apps/web/dist (or the placeholder page)
+pnpm deploy:web                                    # frontend: apps/web/dist
 ```
 
 Live endpoints: app `https://gighunter.onlytools.click`, API `https://wa70iakds2.execute-api.us-east-1.amazonaws.com`.

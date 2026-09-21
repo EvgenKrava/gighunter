@@ -47,7 +47,7 @@ Confirm the SNS subscription email after the first apply. ACM validation can tak
 ## Deploying changes
 
 - Backend: `pnpm build && (cd infra/main && terraform apply)` — Terraform re-zips `apps/lambdas/dist/*` and updates functions whose hash changed.
-- Frontend: `pnpm deploy:web` — syncs `apps/web/dist` (or the placeholder in `apps/web/public`) to the web bucket and invalidates CloudFront.
+- Frontend: `pnpm build:web && pnpm deploy:web` — builds `apps/web/dist` and syncs it to the web bucket, invalidating CloudFront.
 
 ## Destroy
 

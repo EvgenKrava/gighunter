@@ -6,7 +6,7 @@
   },
   "packageManager": "pnpm@12.4.2",
   "scripts": {
-    "build": "pnpm --filter @gighunter/lambdas build",
+    "build": "pnpm --filter @gighunter/lambdas build && pnpm --filter @gighunter/web build",
     "build:web": "pnpm --filter @gighunter/web build",
     "dev:web": "pnpm --filter @gighunter/web dev",
     "test": "pnpm -r --if-present test",
