@@ -1,6 +1,7 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { createRootRouteWithContext, Outlet } from '@tanstack/react-router'
+import type { AppConfig } from '../config'
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<{ config: AppConfig }>()({
   component: () => <Outlet />,
   notFoundComponent: () => (
     <main className="mx-auto max-w-md p-6">
