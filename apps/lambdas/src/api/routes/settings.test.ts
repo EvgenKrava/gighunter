@@ -18,10 +18,11 @@ describe('/settings', () => {
   })
   it('PATCH merges nested fields and rejects unknown keys', async () => {
     const deps = makeApiDeps({ store: { getSettings: vi.fn().mockResolvedValue({ ...defaultSettings(nowIso), platforms: { freelancer: { enabled: false, query: 'old', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }) } })
-    const res = await createApp(deps).request('/settings', json({ notifyThreshold: 80, platforms: { freelancer: { enabled: true } }, telegram: { chatId: '-5' } }, 'PATCH'), authed('s'))
+    const res = await createApp(deps).request('/settings', json({ notifyThreshold: 80, pollIntervalMinutes: 60, platforms: { freelancer: { enabled: true } }, telegram: { chatId: '-5' } }, 'PATCH'), authed('s'))
     expect(res.status).toBe(200)
     const saved = (deps.store.putSettings as ReturnType<typeof vi.fn>).mock.calls[0]![1]
     expect(saved.notifyThreshold).toBe(80)
+    expect(saved.pollIntervalMinutes).toBe(60)
     expect(saved.platforms.freelancer).toEqual({ enabled: true, query: 'old', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' })
     expect(saved.telegram.chatId).toBe('-5')
     expect(saved.updatedAt).toBe(nowIso)

@@ -42,6 +42,15 @@ resource "aws_apigatewayv2_route" "default" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
+# With a JWT-protected $default route, API Gateway only answers CORS preflights automatically
+# if an unauthenticated OPTIONS route exists (AWS docs: "CORS with a $default route and an authorizer").
+resource "aws_apigatewayv2_route" "cors_preflight" {
+  api_id             = aws_apigatewayv2_api.main.id
+  route_key          = "OPTIONS /{proxy+}"
+  target             = "integrations/${aws_apigatewayv2_integration.api.id}"
+  authorization_type = "NONE"
+}
+
 resource "aws_apigatewayv2_route" "tg_webhook" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "POST /telegram/webhook/{userId}"

@@ -157,7 +157,9 @@ Profile {
 }
 
 Settings {
-  active: boolean                    // poller processes this user
+  active: boolean                    // OFF switch: inactive users are never fetched or scored
+  pollIntervalMinutes: number        // 15–1440, default 15; the 15-min scheduler runs a user only when this much time has passed since lastPolledAt
+  lastPolledAt?: string              // stamped by the poller after every run (schedule or manual)
   notifyThreshold: number            // 0–100, default 70
   maxJobAgeHours: number             // ignore jobs older than this, default 24
   model: string                      // scoring model, Bedrock id, default 'global.anthropic.claude-haiku-4-5-20251001-v1:0' (see §9)
@@ -241,6 +243,7 @@ Trigger: EventBridge Scheduler `rate(15 minutes)` with payload `{ "trigger": "sc
 handler(event):
   users = event.userId ? [event.userId] : store.listActiveUsers()
   for user of users:                       // sequential; one user's failure is logged, loop continues
+    if event.trigger == 'schedule' and !isDue(settings(user)): skip   // active && lastPolledAt + pollIntervalMinutes <= now
     try runForUser(user, event.trigger)
     catch e -> log; write RUN with error
 
@@ -418,7 +421,7 @@ Routes:
   1. **Telegram** — BotFather steps; token input; status: bot `@name` ✓ · webhook ✓ · chat: *title* ✓; **Send test message** button; manual chat id override.
   2. **Freelancer.com** — developer portal steps; token input; status: connected as *username*; `enabled` toggle; search query.
   3. **Upwork** — disabled; link to API access application.
-  4. **Matching & AI** — notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown, `active` toggle.
+  4. **Matching & AI** — **Job search ON/OFF** (`active`) and **poll every** 15 min / 30 min / 1 h / 2 h / 4 h / 12 h / 24 h (`pollIntervalMinutes`) shown first as the cost controls; notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown.
   5. **Prompts** — two textareas (*Scoring prompt*, *Chat prompt*) pre-filled with the shipped default or the user's override; a hint listing the available `{{placeholders}}`; per-field **Reset to default**; **Preview** renders the template with the real profile and a bundled sample job and shows the exact text the model will receive. Below: **Quick actions** editor — rows of label + text, add/remove/reorder, max 8, **Reset to default**.
 - `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
@@ -446,7 +449,7 @@ All routes require a valid Cognito JWT (API Gateway JWT authorizer). `sub` is ta
 | GET | `/me` | `{ sub, email }` |
 | GET / PUT | `/profile` | Profile (PUT validates with zod, 400 on error) |
 | GET | `/settings` | Settings with secret fields masked |
-| PATCH | `/settings` | `active`, `notifyThreshold`, `maxJobAgeHours`, `model`, `chatModel`, `platforms.freelancer.{enabled,query}`, `telegram.chatId` |
+| PATCH | `/settings` | `active`, `pollIntervalMinutes`, `notifyThreshold`, `maxJobAgeHours`, `model`, `chatModel`, `platforms.freelancer.{enabled,query}`, `telegram.chatId` |
 | GET | `/prompts` | `{ defaults, overrides }` |
 | PUT | `/prompts` | partial update of `scoring` / `chat` / `quickActions`; `null` resets a field to default; zod-validated |
 | POST | `/prompts/preview` | `{ kind: 'scoring' \| 'chat', template }` → `{ rendered }` using the caller's profile and a bundled sample job/score |
@@ -496,7 +499,7 @@ Non-secret config is passed as Lambda environment variables (table name, API bas
 - DynamoDB table `gighunter` (on-demand, PITR on, TTL attribute `ttl`, GSI1, GSI2).
 - Four Lambda functions (`nodejs22.x`, `arm64`), each from `archive_file` over `apps/lambdas/dist/<name>/`, `source_code_hash` set, CloudWatch log groups with 14-day retention. The api Lambda gets a 29 s timeout (API Gateway's maximum) to accommodate chat turns.
 - EventBridge Scheduler schedule `rate(15 minutes)` → poller.
-- API Gateway HTTP API: JWT authorizer (Cognito), `$default` route → api Lambda, `POST /telegram/webhook/{userId}` → tg-webhook Lambda (no auth), CORS.
+- API Gateway HTTP API: JWT authorizer (Cognito), `$default` route → api Lambda, `OPTIONS /{proxy+}` without auth (required for automatic CORS preflight when `$default` has an authorizer), `POST /telegram/webhook/{userId}` → tg-webhook Lambda (no auth), CORS.
 - Cognito User Pool, Google IdP, app client, Hosted UI domain, pre-sign-up trigger wiring.
 - ACM certificate for `gighunter.onlytools.click` in `us-east-1`, DNS-validated through Route53 records Terraform creates in the existing `onlytools.click` zone (looked up by name with `data "aws_route53_zone"`, not managed).
 - S3 bucket (private) + CloudFront distribution with OAC, alias `gighunter.onlytools.click`, the ACM certificate (TLS 1.2+, SNI), default root `index.html`, 403/404 → `/index.html` (SPA fallback). Route53 `A` and `AAAA` alias records pointing at the distribution.

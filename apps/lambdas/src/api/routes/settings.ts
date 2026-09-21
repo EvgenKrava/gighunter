@@ -25,6 +25,7 @@ export function settingsRoutes(deps: ApiDeps) {
     const patch = SettingsPatchSchema.parse(await c.req.json())
     const s = await load(sub)
     if (patch.active !== undefined) s.active = patch.active
+    if (patch.pollIntervalMinutes !== undefined) s.pollIntervalMinutes = patch.pollIntervalMinutes
     if (patch.notifyThreshold !== undefined) s.notifyThreshold = patch.notifyThreshold
     if (patch.maxJobAgeHours !== undefined) s.maxJobAgeHours = patch.maxJobAgeHours
     if (patch.model !== undefined) s.model = patch.model

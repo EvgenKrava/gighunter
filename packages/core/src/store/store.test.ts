@@ -38,6 +38,13 @@ describe('settings + active users', () => {
     ddb.on(GetCommand).resolves({})
     expect(await store.getSettings('nobody')).toBeNull()
   })
+  it('touchLastPolled updates only lastPolledAt on an existing item', async () => {
+    ddb.on(UpdateCommand).resolves({})
+    await store.touchLastPolled('u1', now)
+    expect(ddb.commandCalls(UpdateCommand)[0]!.args[0].input).toMatchObject({
+      Key: { pk: 'USER#u1', sk: 'SETTINGS' }, UpdateExpression: 'SET lastPolledAt = :at', ConditionExpression: 'attribute_exists(pk)', ExpressionAttributeValues: { ':at': now },
+    })
+  })
   it('listActiveUsers queries gsi1 and follows pagination', async () => {
     ddb.on(QueryCommand).resolvesOnce({ Items: [{ gsi1sk: 'a' }], LastEvaluatedKey: { x: 1 } }).resolvesOnce({ Items: [{ gsi1sk: 'b' }] })
     expect(await store.listActiveUsers()).toEqual(['a', 'b'])

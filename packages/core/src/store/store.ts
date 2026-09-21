@@ -48,6 +48,18 @@ export class Store {
     const gsi = settings.active ? { gsi1pk: ACTIVE_USER_GSI1PK, gsi1sk: userId } : {}
     await this.putItem({ pk: userPk(userId), sk: SK.settings, ...gsi, ...settings })
   }
+  /** Stamps lastPolledAt without rewriting the whole SETTINGS item (the API may be editing it concurrently). */
+  async touchLastPolled(userId: string, at: string): Promise<void> {
+    await this.doc.send(
+      new UpdateCommand({
+        TableName: this.tableName,
+        Key: { pk: userPk(userId), sk: SK.settings },
+        UpdateExpression: 'SET lastPolledAt = :at',
+        ConditionExpression: 'attribute_exists(pk)',
+        ExpressionAttributeValues: { ':at': at },
+      }),
+    )
+  }
   async getPrompts(userId: string): Promise<Prompts | null> {
     const i = await this.getItem(userPk(userId), SK.prompts)
     return i ? PromptsSchema.parse(i) : null

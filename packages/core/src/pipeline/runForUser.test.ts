@@ -30,6 +30,7 @@ function makeDeps(opts: { settings?: ReturnType<typeof settings> | null; jobs?: 
     putMatch: vi.fn().mockImplementation(async (_u: string, m: Match) => { calls.push(`put:${m.job.externalId}:${m.status}`) }),
     updateMatchStatus: vi.fn().mockImplementation(async (_u: string, ref: { externalId: string }, p: { status: string }) => { calls.push(`update:${ref.externalId}:${p.status}`) }),
     putRun: vi.fn().mockResolvedValue(undefined),
+    touchLastPolled: vi.fn().mockResolvedValue(undefined),
   }
   const secrets = { getUserSecret: vi.fn().mockImplementation(async (_u: string, name: string) => (name === 'telegram/bot-token' ? 'bot' : 'fl-token')) }
   const fetchRecent = vi.fn().mockImplementation(async () => { calls.push('fetch'); if (opts.fetchError) throw opts.fetchError; return opts.jobs ?? [] })
@@ -54,6 +55,7 @@ describe('runForUser', () => {
     expect(run.errors).toEqual(['telegram_not_configured'])
     expect(fetchRecent).not.toHaveBeenCalled()
     expect(store.putRun).toHaveBeenCalledWith('u1', expect.objectContaining({ finishedAt: nowIso, trigger: 'schedule' }))
+    expect(store.touchLastPolled).toHaveBeenCalledWith('u1', nowIso)
   })
 
   it('dedups, filters, scores, notifies and accounts usage', async () => {

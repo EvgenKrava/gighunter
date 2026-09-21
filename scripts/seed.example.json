@@ -55,6 +55,7 @@
   },
   "settings": {
     "active": true,
+    "pollIntervalMinutes": 30,
     "notifyThreshold": 70,
     "platforms": {
       "freelancer": {

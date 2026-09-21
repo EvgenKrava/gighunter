@@ -35,6 +35,11 @@ export async function runForUser(deps: PipelineDeps, userId: string, trigger: Ru
   const finish = async () => {
     run.finishedAt = deps.now().toISOString()
     await deps.store.putRun(userId, run)
+    try {
+      await deps.store.touchLastPolled(userId, run.finishedAt)
+    } catch (e) {
+      log.warn('run.touch_failed', { err: e }) // missing SETTINGS item; the run itself is already recorded
+    }
     log.info('run.finish', { errors: run.errors.length, usage: run.usage, perPlatform: run.perPlatform })
     return run
   }

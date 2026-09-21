@@ -28,8 +28,13 @@ export const FreelancerSettingsSchema = z.object({
   connectedAs: z.string().optional(),
 })
 
+/** Scheduler ticks every 15 min; a user is polled only when this many minutes have passed since lastPolledAt. */
+export const POLL_INTERVAL_OPTIONS = [15, 30, 60, 120, 240, 720, 1440] as const
+
 export const SettingsSchema = z.object({
   active: z.boolean().default(false),
+  pollIntervalMinutes: z.number().int().min(15).max(1440).default(15),
+  lastPolledAt: IsoDate.optional(),
   notifyThreshold: z.number().int().min(0).max(100).default(70),
   maxJobAgeHours: z.number().int().min(1).max(168).default(24),
   model: z.string().min(1).default(DEFAULT_MODEL),
@@ -47,6 +52,7 @@ export type Settings = z.infer<typeof SettingsSchema>
 
 export const SettingsPatchSchema = z.strictObject({
   active: z.boolean().optional(),
+  pollIntervalMinutes: z.number().int().min(15).max(1440).optional(),
   notifyThreshold: z.number().int().min(0).max(100).optional(),
   maxJobAgeHours: z.number().int().min(1).max(168).optional(),
   model: z.string().min(1).max(120).optional(),
