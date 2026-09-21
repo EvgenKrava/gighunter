@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { render } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { createMemoryHistory, createRootRouteWithContext, createRoute, createRouter, RouterProvider } from '@tanstack/react-router'
+import { createMemoryHistory, createRootRouteWithContext, createRoute, createRouter, RouterContextProvider } from '@tanstack/react-router'
 import { vi } from 'vitest'
 import type { AppConfig } from '../config'
 import { ToastProvider } from '../components/Toast'
@@ -20,13 +20,17 @@ export const setAuth = (a: MockAuth) => { authState.current = a }
 
 export function renderWithProviders(ui: ReactNode, opts: { route?: string } = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } })
-  const rootRoute = createRootRouteWithContext<{ config: AppConfig }>()({ component: () => ui as never })
+  // `RouterContextProvider` (not `RouterProvider`) puts the router into context without rendering
+  // `<Matches>`, so `ui` mounts synchronously — `RouterProvider` defers the first paint to a
+  // microtask (`router.load()` always `await`s), which is incompatible with tests that assert
+  // immediately after `render()` with no `waitFor`/`await` in between.
+  const rootRoute = createRootRouteWithContext<{ config: AppConfig }>()({ component: () => null })
   const index = createRoute({ getParentRoute: () => rootRoute, path: '/' })
   const router = createRouter({ routeTree: rootRoute.addChildren([index]), context: { config: testConfig }, history: createMemoryHistory({ initialEntries: [opts.route ?? '/'] }) })
   const utils = render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <RouterProvider router={router as never} />
+        <RouterContextProvider router={router as never}>{ui}</RouterContextProvider>
       </ToastProvider>
     </QueryClientProvider>,
   )

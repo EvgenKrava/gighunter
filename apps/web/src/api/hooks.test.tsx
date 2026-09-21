@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { cleanup, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SAMPLE_MATCH } from '@gighunter/core/prompts'
 import type { Chat, MatchRef } from '@gighunter/core/schema'
@@ -36,7 +36,6 @@ function FeedbackProbe({ ref }: { ref: MatchRef }) {
 
 describe('hooks', () => {
   beforeEach(() => setAuth(mockAuth()))
-  afterEach(() => cleanup())
   it('useProfile returns null on 404 and sends the ID token', async () => {
     const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(404, { error: 'profile not set' }))
     renderWithProviders(<ProfileProbe />)

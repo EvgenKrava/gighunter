@@ -5,7 +5,7 @@ import { AppShell } from '../components/AppShell'
 export const Route = createFileRoute('/_app')({ component: AppGuard })
 
 function AppGuard() {
-  const { user, isLoading, signIn } = useAuthUser()
+  const { user, isLoading } = useAuthUser()
   const location = useLocation()
   if (isLoading) return <main className="p-6 text-slate-600">Loading…</main>
   if (!user) {
@@ -14,7 +14,7 @@ function AppGuard() {
     return <Navigate to="/" replace />
   }
   return (
-    <AppShell user={user} onSignIn={signIn}>
+    <AppShell user={user}>
       <Outlet />
     </AppShell>
   )
