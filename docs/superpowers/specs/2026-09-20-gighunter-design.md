@@ -428,7 +428,7 @@ Routes:
 - `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
 - App routes (`/profile`, `/settings`, `/jobs`, `/jobs/$platform/$id`) sit under an authenticated layout route; an unauthenticated visitor is redirected to `/`.
-- Header (app layout only): user email, **Run now** button (POST `/runs`, shows toast, feed refetches after 30 s), sign out. A manual run ignores `pollIntervalMinutes` and runs even when job search is OFF (`active = false`), so a paused user can still search on demand.
+- Header (app layout only): logo, nav (≥ 768 px), and a compact account menu (avatar initial → email + sign out). **Run now** lives in the Jobs page title row and in Settings → Freelancer; a manual run ignores `pollIntervalMinutes` and works even when job search is OFF, so a paused user can still search on demand.
 
 Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No component library.
 

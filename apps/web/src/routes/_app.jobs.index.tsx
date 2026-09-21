@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { MatchStatusSchema } from '@gighunter/core/schema'
 import { useMatches, useRuns } from '../api/hooks'
+import { RunNowButton } from '../components/RunNowButton'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { MatchCard } from '../features/jobs/MatchCard'
@@ -26,6 +27,10 @@ function JobsPage() {
   const items = matches.data?.pages.flatMap((p) => p.items) ?? []
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Jobs</h1>
+        <RunNowButton />
+      </div>
       <StatusChips current={status} />
       {matches.isLoading && <div className="py-8 text-center text-slate-500"><Spinner /></div>}
       {matches.error && <p className="text-red-600">{matches.error.message}</p>}
