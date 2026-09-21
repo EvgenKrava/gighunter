@@ -34,7 +34,9 @@ function JobsPage() {
       {matches.hasNextPage && <Button variant="secondary" className="w-full" onClick={() => matches.fetchNextPage()} loading={matches.isFetchingNextPage}>Load more</Button>}
       <section>
         <h2 className="mb-2 text-lg font-semibold">Recent runs</h2>
-        <RunsList runs={runs.data ?? []} />
+        {runs.isLoading && <div className="py-8 text-center text-slate-500"><Spinner /></div>}
+        {runs.error && <p className="text-red-600">{runs.error.message}</p>}
+        {!runs.isLoading && !runs.error && <RunsList runs={runs.data ?? []} />}
       </section>
     </div>
   )
