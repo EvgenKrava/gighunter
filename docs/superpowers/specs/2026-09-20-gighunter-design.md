@@ -427,6 +427,16 @@ Routes:
 
 Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No component library.
 
+**Mobile-first is a hard requirement.** The main entry point is the "Chat in GigHunter" link tapped from Telegram on a phone, so every screen is designed at 360 px width first and enhanced for desktop:
+
+- Single-column layouts; the Jobs feed and Runs list render as cards, never tables; no horizontal scrolling anywhere.
+- The job detail page on a phone is the chat: job summary collapses into an expandable header, the message list fills the viewport, the input and quick-action chips stick to the bottom above the keyboard (`100dvh`, `env(safe-area-inset-bottom)`).
+- Touch targets ≥ 44 px, 16 px base font (prevents iOS zoom on focus), forms with native inputs (`inputmode`, `enterkeyhint`).
+- Bottom navigation bar (Jobs · Profile · Settings) on small screens, header nav on ≥ 768 px.
+- Settings instruction blocks are collapsible so the token inputs are reachable without scrolling past four paragraphs.
+- Installable as a PWA (manifest + icons, `display: standalone`) so it can live on the home screen; no offline mode in v1.
+- Verified on real phone widths (360, 390, 430) before the web plan is considered done.
+
 ## 12. API (`apps/lambdas/api`, Hono)
 
 All routes require a valid Cognito JWT (API Gateway JWT authorizer). `sub` is taken from the JWT claims only; request bodies never carry a user id.
