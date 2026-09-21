@@ -302,6 +302,8 @@ interface JobSource {
 
 `fetchRecent` returns `[]` and `verifyToken` returns `{ ok: false, error: 'not_implemented' }`. Settings UI shows it disabled with a link to Upwork's API access application.
 
+API key applied for on 2026-09-21 with OAuth 2.0 authorization-code flow and callback URL `https://gighunter.onlytools.click/upwork/callback`. v2 design: the SPA route `/upwork/callback` receives `?code=` while the user is signed in and calls `POST /settings/upwork/connect { code }`; the API exchanges the code using the client id/secret (SSM `/gighunter/upwork/client-id` and `/client-secret`, app-level) and stores the per-user refresh/access tokens under `/gighunter/users/<sub>/upwork/token`; `platforms.upwork` gains `enabled`/`query`/`connectedAs` like Freelancer.
+
 ## 8. Pre-filter (deterministic, no LLM)
 
 Evaluated in order; the first hit wins and becomes `filterReason`:
