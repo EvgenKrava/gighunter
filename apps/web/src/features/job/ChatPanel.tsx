@@ -17,11 +17,6 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
   const [confirmReset, setConfirmReset] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const messages: ChatMessage[] = chat?.messages ?? []
-  // The `chat` prop only grows once the parent's match query refetches (via the
-  // invalidation `useSendChat` triggers), which doesn't happen synchronously after
-  // a send. Track locally whether this session has sent anything so "Reset chat"
-  // appears right away instead of waiting on that refetch.
-  const [everSent, setEverSent] = useState(messages.length > 0)
 
   useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [messages.length, pendingText])
 
@@ -29,7 +24,6 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
     const message = text.trim()
     if (!message || send.isPending) return
     setPendingText(message)
-    setEverSent(true)
     setDraft('')
     setTruncated(false)
     send.mutate(message, {
@@ -45,7 +39,7 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
     <section className="flex flex-col" aria-label="Chat">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Chat</h2>
-        {everSent && <Button variant="ghost" size="sm" onClick={() => setConfirmReset(true)} aria-label="Reset chat"><RotateCcw size={16} />Reset chat</Button>}
+        {messages.length > 0 && <Button variant="ghost" onClick={() => setConfirmReset(true)} aria-label="Reset chat"><RotateCcw size={16} />Reset chat</Button>}
       </div>
       <div className="space-y-3">
         {messages.length === 0 && !pendingText && <p className="text-sm text-slate-500">Ask anything about this job, or tap a quick action. The assistant knows your profile, the post and the score.</p>}
@@ -81,7 +75,7 @@ function Bubble({ m, onCopy }: { m: ChatMessage; onCopy?: () => void }) {
     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
       <div className={`relative max-w-[88%] rounded-2xl px-3.5 py-2.5 text-base ${mine ? 'bg-brand text-white' : 'bg-slate-100 dark:bg-slate-800'}`}>
         {mine ? <p className="whitespace-pre-wrap">{m.content}</p> : <div className="md"><Markdown>{m.content}</Markdown></div>}
-        {onCopy && <button type="button" onClick={onCopy} aria-label="Copy" className="mt-1 inline-flex min-h-8 items-center gap-1 text-xs text-slate-500"><Copy size={12} />Copy</button>}
+        {onCopy && <button type="button" onClick={onCopy} aria-label="Copy" className="mt-1 inline-flex min-h-11 items-center gap-1 px-1 text-xs text-slate-500"><Copy size={12} />Copy</button>}
       </div>
     </div>
   )

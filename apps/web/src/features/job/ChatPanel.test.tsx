@@ -29,7 +29,7 @@ describe('ChatPanel', () => {
   })
   it('sends typed text with Enter and resets after confirmation', async () => {
     const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, { reply: 'ok', truncated: false, usage: { inputTokens: 1, outputTokens: 1 } }))
-    renderWithProviders(<ChatPanel matchRef={ref} chat={null} quickActions={[]} />)
+    renderWithProviders(<ChatPanel matchRef={ref} chat={chat} quickActions={[]} />)
     await userEvent.type(screen.getByPlaceholderText(/ask about this job/i), 'Estimate it{enter}')
     await waitFor(() => expect(fetchFn).toHaveBeenCalled())
     expect(JSON.parse(String(fetchFn.mock.calls[0]![1]!.body))).toEqual({ message: 'Estimate it' })
