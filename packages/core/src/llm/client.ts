@@ -31,7 +31,12 @@ export function supportsAdaptiveThinking(modelId: string): boolean {
 }
 
 export function createBedrockClient(modelId: string, region = process.env.AWS_REGION ?? 'us-east-1'): LlmClient {
-  const client = usesMantle(modelId) ? new AnthropicBedrockMantle({ awsRegion: region }) : new AnthropicBedrock({ awsRegion: region })
+  // A null apiKey forces SigV4 (IAM) auth even when AWS_BEARER_TOKEN_BEDROCK / ANTHROPIC_AUTH_TOKEN are set in the
+  // environment (developer shells often have them); GigHunter authenticates with the Lambda role, never a bearer token.
+  // The SDK's ClientOptions type only admits `string | undefined`, but `undefined` re-enables the env lookup, so the
+  // runtime-honoured `null` is passed through a cast.
+  const noBearer = { awsRegion: region, apiKey: null as unknown as string }
+  const client = usesMantle(modelId) ? new AnthropicBedrockMantle(noBearer) : new AnthropicBedrock(noBearer)
   return client as unknown as LlmClient
 }
 
