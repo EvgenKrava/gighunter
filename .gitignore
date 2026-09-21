@@ -33,3 +33,6 @@ seed*.json
 !scripts/seed.example.json
 # terraform build artifacts
 infra/**/.build/
+
+# Google OAuth client downloads (contain the client secret)
+client_secret*.json
