@@ -55,7 +55,7 @@ describe('TelegramBlock', () => {
 
 describe('FreelancerBlock', () => {
   beforeEach(() => setAuth(mockAuth()))
-  it('toggles enabled and saves the query on blur', async () => {
+  it('toggles enabled, saves the query on blur, and via the Save query button', async () => {
     const onPatch = vi.fn()
     const s: PublicSettings = { ...base(), platforms: { freelancer: { enabled: false, query: 'react', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }
     renderWithProviders(<FreelancerBlock settings={s} onPatch={onPatch} />)
@@ -65,6 +65,11 @@ describe('FreelancerBlock', () => {
     const q = screen.getByLabelText(/search query/i)
     await userEvent.clear(q); await userEvent.type(q, 'typescript'); await userEvent.tab()
     expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { query: 'typescript' } } })
+    // Clicking "Save query" also blurs the input, so the blur handler and the button's onClick
+    // both fire — assert the patch happened rather than counting calls.
+    await userEvent.clear(q); await userEvent.type(q, 'node')
+    await userEvent.click(screen.getByRole('button', { name: /save query/i }))
+    expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { query: 'node' } } })
   })
   it('resyncs the search query when settings refetch with a new value', () => {
     const s: PublicSettings = { ...base(), platforms: { freelancer: { enabled: false, query: 'react', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }

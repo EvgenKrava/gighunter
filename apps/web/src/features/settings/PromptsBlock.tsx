@@ -36,7 +36,7 @@ function PromptEditor({ kind, label, defaultText, override }: { kind: 'scoring' 
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2"><h3 className="font-medium">{label}</h3>{override && <span className="rounded bg-indigo-100 px-2 text-xs text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">customized</span>}</div>
-      <Textarea aria-label={label} value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={8000} className="font-mono text-sm" />
+      <Textarea aria-label={label} value={text} onChange={(e) => setText(e.target.value)} rows={10} maxLength={8000} className="font-mono" />
       <div className="flex flex-wrap gap-2">
         <Button disabled={!dirty || !text.trim()} loading={save.isPending} onClick={() => save.mutate(kind === 'scoring' ? { scoring: text } : { chat: text }, { onSuccess: ok, onError: fail })}>Save</Button>
         <Button variant="secondary" loading={preview.isPending} onClick={() => preview.mutate({ kind, template: text }, { onSuccess: (r) => setRendered(r.rendered), onError: fail })}>Preview</Button>
@@ -72,7 +72,7 @@ function QuickActionsEditor({ defaults, override }: { defaults: QuickAction[]; o
         {items.map((a, i) => (
           <li key={a.id} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
             <div className="flex items-center gap-2">
-              <TextInput aria-label={`Action ${i + 1} label`} className="mt-0" placeholder="Label" maxLength={40} value={a.label} onChange={(e) => update(i, { label: e.target.value })} />
+              <div className="min-w-0 flex-1"><TextInput aria-label={`Action ${i + 1} label`} className="mt-0" placeholder="Label" maxLength={40} value={a.label} onChange={(e) => update(i, { label: e.target.value })} /></div>
               <button type="button" aria-label="Move up" className="grid h-11 w-11 place-items-center text-slate-500" onClick={() => move(i, -1)}><ArrowUp size={16} /></button>
               <button type="button" aria-label="Move down" className="grid h-11 w-11 place-items-center text-slate-500" onClick={() => move(i, 1)}><ArrowDown size={16} /></button>
               <button type="button" aria-label="Remove action" className="grid h-11 w-11 place-items-center text-red-600" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 size={16} /></button>

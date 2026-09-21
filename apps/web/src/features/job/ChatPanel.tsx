@@ -54,7 +54,7 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
       <div className="sticky bottom-16 z-30 -mx-4 mt-4 border-t border-slate-200 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-2 md:bottom-0 dark:border-slate-800 dark:bg-slate-950">
         {quickActions.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
-            {quickActions.map((q) => <button key={q.label} type="button" disabled={send.isPending} onClick={() => submit(q.text)} className="min-h-9 rounded-full border border-slate-300 px-3 text-sm disabled:opacity-50 dark:border-slate-700">{q.label}</button>)}
+            {quickActions.map((q) => <button key={q.label} type="button" disabled={send.isPending} onClick={() => submit(q.text)} className="min-h-11 rounded-full border border-slate-300 px-3 text-sm disabled:opacity-50 dark:border-slate-700">{q.label}</button>)}
           </div>
         )}
         <div className="flex items-end gap-2">

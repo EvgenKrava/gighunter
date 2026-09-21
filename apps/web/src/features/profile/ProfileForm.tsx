@@ -42,11 +42,15 @@ export function ProfileForm({ initial, onSubmit, saving }: { initial: Profile | 
             <div className="mt-1 space-y-2">
               {f.state.value.map((_, i) => (
                 <div key={i} className="flex items-end gap-2">
-                  <form.Field name={`skills[${i}].name`} children={(sf) => <TextInput aria-label="Skill name" placeholder="Skill name" className="mt-0 flex-1" value={sf.state.value} onChange={(e) => sf.handleChange(e.target.value)} />} />
+                  <form.Field name={`skills[${i}].name`} children={(sf) => (
+                    <div className="min-w-0 flex-1"><TextInput aria-label="Skill name" placeholder="Skill name" className="mt-0" value={sf.state.value} onChange={(e) => sf.handleChange(e.target.value)} /></div>
+                  )} />
                   <form.Field name={`skills[${i}].level`} children={(sf) => (
-                    <Select aria-label="Level" className="mt-0 w-32" value={sf.state.value} onChange={(e) => sf.handleChange(SkillLevelSchema.parse(e.target.value))}>
-                      {SkillLevelSchema.options.map((l) => <option key={l} value={l}>{l}</option>)}
-                    </Select>
+                    <div className="w-32 shrink-0">
+                      <Select aria-label="Level" className="mt-0" value={sf.state.value} onChange={(e) => sf.handleChange(SkillLevelSchema.parse(e.target.value))}>
+                        {SkillLevelSchema.options.map((l) => <option key={l} value={l}>{l}</option>)}
+                      </Select>
+                    </div>
                   )} />
                   <button type="button" aria-label="Remove skill" className="grid h-11 w-11 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => f.removeValue(i)}><Trash2 size={18} /></button>
                 </div>

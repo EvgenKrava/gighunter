@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import type { SettingsPatch } from '@gighunter/core/schema'
 import { useRemoveToken, useSaveToken, type PublicSettings } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
+import { RunNowButton } from '../../components/RunNowButton'
+import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Details } from '../../components/ui/Details'
 import { Field } from '../../components/ui/Field'
@@ -16,6 +18,8 @@ export function FreelancerBlock({ settings, onPatch }: { settings: PublicSetting
   const [query, setQuery] = useState(f.query)
   useEffect(() => setQuery(f.query), [f.query])
   const wrap = <T,>(p: Promise<T>) => p.then((r) => { toast('Saved', 'success'); return r }).catch((e) => { toast(e.message, 'error'); throw e })
+  const saveQuery = () => query !== f.query && onPatch({ platforms: { freelancer: { query } } })
+  const onQueryKey = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); saveQuery() } }
   return (
     <Card className="space-y-3">
       <h2 className="text-lg font-semibold">Freelancer.com</h2>
@@ -33,8 +37,12 @@ export function FreelancerBlock({ settings, onPatch }: { settings: PublicSetting
           <p>Connected as {f.connectedAs} ✓</p>
           <Toggle label="Poll Freelancer.com" checked={f.enabled} onChange={(enabled) => onPatch({ platforms: { freelancer: { enabled } } })} />
           <Field label="Search query" hint="Sent to the Freelancer search API every poll, e.g. “typescript react node”">
-            <TextInput value={query} onChange={(e) => setQuery(e.target.value)} onBlur={() => query !== f.query && onPatch({ platforms: { freelancer: { query } } })} enterKeyHint="done" />
+            <TextInput value={query} onChange={(e) => setQuery(e.target.value)} onBlur={saveQuery} onKeyDown={onQueryKey} enterKeyHint="go" />
           </Field>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" disabled={query === f.query} onClick={() => onPatch({ platforms: { freelancer: { query } } })}>Save query</Button>
+            <RunNowButton />
+          </div>
         </div>
       )}
     </Card>

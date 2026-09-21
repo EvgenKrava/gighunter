@@ -12,11 +12,12 @@ export function MatchingBlock({ settings, onPatch }: { settings: PublicSettings;
   const [age, setAge] = useState<number | undefined>(settings.maxJobAgeHours)
   useEffect(() => setThreshold(settings.notifyThreshold), [settings.notifyThreshold])
   useEffect(() => setAge(settings.maxJobAgeHours), [settings.maxJobAgeHours])
+  const commit = () => { if (threshold !== settings.notifyThreshold) onPatch({ notifyThreshold: threshold }) }
   return (
     <Card className="space-y-3">
       <h2 className="text-lg font-semibold">Matching & AI</h2>
       <Field label={`Notify when score ≥ ${threshold}`} hint="Jobs below this are stored as “scored” but not sent">
-        <input type="range" min={0} max={100} step={5} value={threshold} aria-label="Notify threshold" className="mt-2 w-full min-h-11 accent-brand" onChange={(e) => setThreshold(Number(e.target.value))} onMouseUp={() => onPatch({ notifyThreshold: threshold })} onTouchEnd={() => onPatch({ notifyThreshold: threshold })} onKeyUp={() => onPatch({ notifyThreshold: threshold })} />
+        <input type="range" min={0} max={100} step={5} value={threshold} aria-label="Notify threshold" className="mt-2 w-full min-h-11 accent-brand" onChange={(e) => setThreshold(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} />
       </Field>
       <Field label="Ignore jobs older than (hours)"><NumberInput value={age} onChange={setAge} min={1} max={168} onBlur={() => age && age !== settings.maxJobAgeHours && onPatch({ maxJobAgeHours: age })} /></Field>
       <Field label="Scoring model" hint="Haiku is the cheapest and fast enough for scoring">

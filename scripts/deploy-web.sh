@@ -9,6 +9,7 @@ if [ ! -d "$SRC" ]; then
 fi
 BUCKET=$(cd infra/main && terraform output -raw web_bucket)
 DIST=$(cd infra/main && terraform output -raw cloudfront_distribution_id)
-aws s3 sync "$SRC" "s3://$BUCKET" --delete --profile yevhenii
+aws s3 sync "$SRC/assets" "s3://$BUCKET/assets" --cache-control "public,max-age=31536000,immutable" --profile yevhenii
+aws s3 sync "$SRC" "s3://$BUCKET" --exclude "assets/*" --cache-control "no-cache" --delete --profile yevhenii
 aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/*" --profile yevhenii >/dev/null
 echo "deployed $SRC → $(cd infra/main && terraform output -raw app_url)"

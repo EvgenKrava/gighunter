@@ -9,11 +9,11 @@ const platformLabel = { freelancer: 'Freelancer', upwork: 'Upwork' } as const
 export function MatchCard({ match }: { match: Match }) {
   const { job, score, verdict, feedback } = match
   return (
-    <article className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <article className="relative rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start gap-3">
         <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-slate-100 text-lg font-bold dark:bg-slate-800">{score ? score.score : '–'}</div>
         <div className="min-w-0 flex-1">
-          <Link to="/jobs/$platform/$id" params={{ platform: job.platform, id: job.externalId }} className="block text-base font-semibold leading-snug hover:underline">{job.title}</Link>
+          <Link to="/jobs/$platform/$id" params={{ platform: job.platform, id: job.externalId }} className="block text-base font-semibold leading-snug after:absolute after:inset-0 after:content-[''] hover:underline">{job.title}</Link>
           <p className="mt-0.5 text-sm text-slate-500">{budgetLabel(job.budget)} · {platformLabel[job.platform]}</p>
         </div>
         {feedback && <span aria-label={feedback === 'up' ? 'Marked useful' : 'Marked not for me'} className="text-slate-400">{feedback === 'up' ? <ThumbsUp size={18} /> : <ThumbsDown size={18} />}</span>}
