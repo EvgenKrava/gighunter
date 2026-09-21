@@ -40,3 +40,4 @@ infra/**/.build/
 
 # Google OAuth client downloads (contain the client secret)
 client_secret*.json
+.claude/

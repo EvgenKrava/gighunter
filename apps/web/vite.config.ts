@@ -10,6 +10,10 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
+      // Manifest + icons only (spec §11: installable, no offline mode). The self-destroying worker
+      // unregisters itself and clears caches on clients that still hold the earlier precaching worker,
+      // whose cache-first index.html kept serving a stale build until the browser's own update check.
+      selfDestroying: true,
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
@@ -26,7 +30,6 @@ export default defineConfig({
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'], navigateFallback: '/index.html' },
     }),
   ],
   server: { port: 5173 },

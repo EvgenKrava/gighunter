@@ -5,6 +5,8 @@ import '@testing-library/jest-dom/vitest'
 // jsdom does not implement scrollIntoView; ChatPanel calls it to keep the latest
 // message in view. Stub it as a no-op so components can call it unconditionally.
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {}
+// Same for window.scrollTo, which the router's scroll restoration calls after each navigation.
+window.scrollTo = () => {}
 
 vi.mock('react-oidc-context', async () => {
   const { authState } = await import('./utils')
