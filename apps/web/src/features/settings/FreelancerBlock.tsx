@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { SettingsPatch } from '@gighunter/core/schema'
 import { useRemoveToken, useSaveToken, type PublicSettings } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
@@ -16,9 +16,14 @@ export function FreelancerBlock({ settings, onPatch }: { settings: PublicSetting
   const toast = useToast()
   const f = settings.platforms.freelancer
   const [query, setQuery] = useState(f.query)
-  useEffect(() => setQuery(f.query), [f.query])
+  const submittedRef = useRef(f.query)
+  useEffect(() => { setQuery(f.query); submittedRef.current = f.query }, [f.query])
   const wrap = <T,>(p: Promise<T>) => p.then((r) => { toast('Saved', 'success'); return r }).catch((e) => { toast(e.message, 'error'); throw e })
-  const saveQuery = () => query !== f.query && onPatch({ platforms: { freelancer: { query } } })
+  const saveQuery = () => {
+    if (query === submittedRef.current) return
+    submittedRef.current = query
+    onPatch({ platforms: { freelancer: { query } } })
+  }
   const onQueryKey = (e: KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter') { e.preventDefault(); saveQuery() } }
   return (
     <Card className="space-y-3">
@@ -40,7 +45,7 @@ export function FreelancerBlock({ settings, onPatch }: { settings: PublicSetting
             <TextInput value={query} onChange={(e) => setQuery(e.target.value)} onBlur={saveQuery} onKeyDown={onQueryKey} enterKeyHint="go" />
           </Field>
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" disabled={query === f.query} onClick={() => onPatch({ platforms: { freelancer: { query } } })}>Save query</Button>
+            <Button variant="secondary" disabled={query === f.query} onClick={saveQuery}>Save query</Button>
             <RunNowButton />
           </div>
         </div>

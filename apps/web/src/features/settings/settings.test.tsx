@@ -55,21 +55,24 @@ describe('TelegramBlock', () => {
 
 describe('FreelancerBlock', () => {
   beforeEach(() => setAuth(mockAuth()))
-  it('toggles enabled, saves the query on blur, and via the Save query button', async () => {
+  it('toggles enabled, saves the query on blur, and saves exactly once via Save query', async () => {
     const onPatch = vi.fn()
     const s: PublicSettings = { ...base(), platforms: { freelancer: { enabled: false, query: 'react', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }
     renderWithProviders(<FreelancerBlock settings={s} onPatch={onPatch} />)
     expect(screen.getByText(/connected as yev/i)).toBeInTheDocument()
     await userEvent.click(screen.getByRole('switch', { name: /poll freelancer/i }))
     expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { enabled: true } } })
+    const queryPatches = () => onPatch.mock.calls.filter(([p]) => p.platforms?.freelancer && 'query' in p.platforms.freelancer)
     const q = screen.getByLabelText(/search query/i)
     await userEvent.clear(q); await userEvent.type(q, 'typescript'); await userEvent.tab()
-    expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { query: 'typescript' } } })
-    // Clicking "Save query" also blurs the input, so the blur handler and the button's onClick
-    // both fire — assert the patch happened rather than counting calls.
+    expect(queryPatches()).toEqual([[{ platforms: { freelancer: { query: 'typescript' } } }]])
+    // Clicking "Save query" blurs the input first (firing onBlur) and then fires its own
+    // onClick — both call the same idempotent saveQuery, so this single interaction must add
+    // exactly one query PATCH for the new value, not two.
     await userEvent.clear(q); await userEvent.type(q, 'node')
     await userEvent.click(screen.getByRole('button', { name: /save query/i }))
-    expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { query: 'node' } } })
+    expect(queryPatches()).toHaveLength(2)
+    expect(queryPatches()[1]).toEqual([{ platforms: { freelancer: { query: 'node' } } }])
   })
   it('resyncs the search query when settings refetch with a new value', () => {
     const s: PublicSettings = { ...base(), platforms: { freelancer: { enabled: false, query: 'react', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }
