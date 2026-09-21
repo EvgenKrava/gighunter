@@ -5,7 +5,7 @@ export interface FreelancerProject {
   owner_id?: number
   title: string
   seo_url?: string
-  currency?: { code?: string }
+  currency?: { code?: string; exchange_rate?: number | null }
   description?: string
   preview_description?: string
   jobs?: { name: string }[]
@@ -31,6 +31,7 @@ export function normalizeFreelancerProject(p: FreelancerProject, users: Record<s
         ...(p.budget.maximum != null ? { max: p.budget.maximum } : {}),
         currency: p.currency?.code ?? 'USD',
         type,
+        ...(typeof p.currency?.exchange_rate === 'number' && p.currency.exchange_rate > 0 ? { rateToUsd: p.currency.exchange_rate } : {}),
       }
     : null
   const posted = p.submitdate ?? p.time_updated ?? Math.floor(Date.now() / 1000)

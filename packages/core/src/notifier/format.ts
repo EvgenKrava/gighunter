@@ -1,3 +1,4 @@
+import { approxUsd } from '../prompts/render'
 import { FeedbackSchema, PlatformSchema, type Feedback, type Match, type MatchRef, type Platform } from '../schema/index'
 
 export interface InlineKeyboard { inline_keyboard: { text: string; callback_data: string }[][] }
@@ -41,7 +42,7 @@ function budgetLine(job: Match['job']): string {
   if (!b) return 'budget n/a'
   const range =
     b.min !== undefined && b.max !== undefined ? `$${b.min}–${b.max}` : b.min !== undefined ? `from $${b.min}` : b.max !== undefined ? `up to $${b.max}` : '$?'
-  return b.type === 'hourly' ? `${range}/h ${b.currency} hourly` : `${range} ${b.currency} fixed`
+  return (b.type === 'hourly' ? `${range}/h ${b.currency} hourly` : `${range} ${b.currency} fixed`) + approxUsd(b)
 }
 
 const TELEGRAM_MAX = 4000

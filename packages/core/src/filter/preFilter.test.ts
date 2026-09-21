@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { preFilter } from './preFilter'
+import { preFilter, budgetInUsd } from './preFilter'
 import { defaultProfileFilters, type Job, type ProfileFilters } from '../schema/index'
 
 const now = new Date('2026-09-20T12:00:00.000Z')
@@ -30,7 +30,13 @@ const cases: [string, Partial<Job>, string | null, typeof profile][] = [
   ['hourly rate at/above floor passes', { budget: { min: 10, max: 25, currency: 'USD', type: 'hourly' } }, null, withFilters({ minHourlyRate: 20 })],
   ['required keyword missing', {}, 'keyword_missing', withFilters({ mustHaveAny: ['typescript', 'node'] })],
   ['required keyword present (whole word, case-insensitive)', { description: 'Needs TypeScript expertise' }, null, withFilters({ mustHaveAny: ['typescript'] })],
-  ['payment not verified (unknown client counts as unverified)', {}, 'payment_not_verified', withFilters({ requirePaymentVerified: true })],
+  ['unknown client passes even when verification is required', {}, null, withFilters({ requirePaymentVerified: true })],
+  ['client explicitly unverified is rejected', { client: { paymentVerified: false } }, 'payment_not_verified', withFilters({ requirePaymentVerified: true })],
+  ['rating rule skipped when the platform reports no rating', { client: { paymentVerified: true } }, null, withFilters({ minClientRating: 4 })],
+  ['INR budget converted with rateToUsd (₹12500–37500 ≈ $130–390) passes a $50–500 profile', { budget: { min: 12500, max: 37500, currency: 'INR', type: 'fixed', rateToUsd: 0.0104 } }, null, profile],
+  ['INR budget converted and above max', { budget: { min: 250000, max: 500000, currency: 'INR', type: 'fixed', rateToUsd: 0.0104 } }, 'budget_above_max', profile],
+  ['non-USD budget without a rate skips budget rules', { budget: { min: 250000, max: 500000, currency: 'INR', type: 'fixed' } }, null, profile],
+  ['hourly floor uses the converted rate', { budget: { min: 750, max: 1250, currency: 'INR', type: 'hourly', rateToUsd: 0.0104 } }, 'hourly_rate_below_min', withFilters({ minHourlyRate: 20 })],
   ['payment verified passes', { client: { paymentVerified: true } }, null, withFilters({ requirePaymentVerified: true })],
   ['client rating below min', { client: { rating: 3.9 } }, 'client_rating_below_min', withFilters({ minClientRating: 4 })],
   ['client reviews below min', { client: { rating: 5, reviews: 2 } }, 'client_reviews_below_min', withFilters({ minClientReviews: 5 })],
@@ -40,5 +46,11 @@ const cases: [string, Partial<Job>, string | null, typeof profile][] = [
 describe('preFilter', () => {
   it.each(cases)('%s', (_name, patch, expected, prof) => {
     expect(preFilter({ ...base, ...patch }, prof, settings, now)).toBe(expected)
+  })
+
+  it('budgetInUsd converts or returns null', () => {
+    expect(budgetInUsd({ min: 100, max: 200, currency: 'USD', type: 'fixed' })).toEqual({ min: 100, max: 200 })
+    expect(budgetInUsd({ min: 1000, max: 2000, currency: 'EUR', type: 'fixed', rateToUsd: 1.1 })).toEqual({ min: 1100, max: 2200 })
+    expect(budgetInUsd({ min: 1000, currency: 'EUR', type: 'fixed' })).toBeNull()
   })
 })

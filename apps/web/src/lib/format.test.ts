@@ -14,6 +14,7 @@ describe('format', () => {
     expect(budgetLabel({ min: 20, max: 40, currency: 'USD', type: 'hourly' })).toBe('$20–40/h USD hourly')
     expect(budgetLabel({ currency: 'USD', type: 'fixed' })).toBe('$? USD fixed')
     expect(budgetLabel(null)).toBe('budget n/a')
+    expect(budgetLabel({ min: 1500, max: 3000, currency: 'AUD', type: 'fixed', rateToUsd: 0.71 })).toBe('$1500–3000 AUD fixed (≈ $1065–2130 USD)')
   })
   it('tones and labels', () => {
     expect(verdictTone('strong')).toBe('green'); expect(verdictTone('maybe')).toBe('amber'); expect(verdictTone('no')).toBe('red'); expect(verdictTone(undefined)).toBe('slate')

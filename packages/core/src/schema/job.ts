@@ -6,6 +6,7 @@ export const JobBudgetSchema = z.object({
   max: z.number().optional(),
   currency: z.string().min(1),
   type: z.enum(['fixed', 'hourly']),
+  rateToUsd: z.number().positive().optional(), // USD per 1 unit of `currency`, when the platform reports it
 })
 export type JobBudget = z.infer<typeof JobBudgetSchema>
 

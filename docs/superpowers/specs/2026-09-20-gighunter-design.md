@@ -149,7 +149,7 @@ Profile {
     mustHaveAny: string[]                                 // at least one must appear (whole-word) in title+description; empty = off
     jobTypes: ('fixed' | 'hourly')[]                      // default both
     minHourlyRate?: number                                // hourly jobs whose max rate is below this are dropped
-    requirePaymentVerified: boolean                       // default false; unknown client counts as unverified
+    requirePaymentVerified: boolean                       // default false; applies only when the platform reports the client
     minClientRating?: number                              // 0–5
     minClientReviews?: number
   }
@@ -190,7 +190,7 @@ Job {                                // normalized, platform-agnostic
   url: string
   title: string
   description: string
-  budget: { min?: number; max?: number; currency: string; type: 'fixed' | 'hourly' } | null
+  budget: { min?: number; max?: number; currency: string; type: 'fixed' | 'hourly'; rateToUsd?: number } | null   // rateToUsd = USD per unit, when the platform reports it
   skills: string[]
   postedAt: string
   language?: string
@@ -316,8 +316,10 @@ Evaluated in order; the first hit wins and becomes `filterReason`:
 6. `budget_above_max` — fixed-price job with `budget.min > profile.budget.max`.
 7. `hourly_rate_below_min` — hourly job with `budget.max < filters.minHourlyRate`.
 8. `keyword_missing` — `filters.mustHaveAny` is non-empty and none of its entries appears (whole word) in title or description.
-9. `payment_not_verified` — `filters.requirePaymentVerified` and the client is not known to be verified.
-10. `client_rating_below_min` / `client_reviews_below_min` — client stats (missing = 0) below the configured minimums.
+9. `payment_not_verified` — `filters.requirePaymentVerified` and the platform reports the client as **not** verified. Unknown clients pass (Freelancer.com's API does not expose employer identity to third-party apps, so every Freelancer job has an unknown client; the LLM sees "Client: unknown").
+10. `client_rating_below_min` / `client_reviews_below_min` — only when the platform reports the stat and it is below the configured minimum.
+
+Budget rules compare in USD: USD budgets as-is, other currencies via `budget.rateToUsd` (Freelancer supplies `currency.exchange_rate`); a non-USD budget without a rate skips the budget and rate rules.
 
 Jobs with `budget = null` skip the budget and rate rules; the LLM judges them. The per-run scoring cap (`MAX_SCORED_PER_RUN = 20` per platform) is a cost guard, not a filter: jobs beyond it are left unwritten and picked up next run, and the run records `score_cap:<platform>:<n>_skipped`.
 

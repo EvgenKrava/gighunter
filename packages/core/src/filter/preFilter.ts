@@ -1,11 +1,22 @@
-import type { Job, Profile, Settings } from '../schema/index'
+import type { Job, JobBudget, Profile, Settings } from '../schema/index'
 
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const wordRe = (word: string) => new RegExp(`\\b${escapeRegExp(word.trim())}\\b`, 'i')
 
+/** Budget bounds in USD, or null when the currency cannot be converted (the LLM judges those). */
+export function budgetInUsd(b: JobBudget): { min?: number; max?: number } | null {
+  const rate = b.currency.toUpperCase() === 'USD' ? 1 : b.rateToUsd
+  if (!rate) return null
+  return {
+    ...(b.min !== undefined ? { min: b.min * rate } : {}),
+    ...(b.max !== undefined ? { max: b.max * rate } : {}),
+  }
+}
+
 /**
  * Cheap deterministic rejection before any LLM call. Rules run in order; first hit wins.
- * Returns null when the job should be scored.
+ * Returns null when the job should be scored. Client-quality rules only fire when the platform
+ * actually reports the client field — unknown clients pass through to the LLM.
  */
 export function preFilter(
   job: Job,
@@ -26,20 +37,22 @@ export function preFilter(
 
   if (job.budget && !f.jobTypes.includes(job.budget.type)) return `job_type:${job.budget.type}`
 
-  if (job.budget?.type === 'fixed') {
-    if (job.budget.max !== undefined && job.budget.max < profile.budget.min) return 'budget_below_min'
-    if (job.budget.min !== undefined && job.budget.min > profile.budget.max) return 'budget_above_max'
+  const usd = job.budget ? budgetInUsd(job.budget) : null
+  if (usd && job.budget?.type === 'fixed') {
+    if (usd.max !== undefined && usd.max < profile.budget.min) return 'budget_below_min'
+    if (usd.min !== undefined && usd.min > profile.budget.max) return 'budget_above_max'
   }
-  if (job.budget?.type === 'hourly' && f.minHourlyRate !== undefined) {
-    if (job.budget.max !== undefined && job.budget.max < f.minHourlyRate) return 'hourly_rate_below_min'
+  if (usd && job.budget?.type === 'hourly' && f.minHourlyRate !== undefined) {
+    if (usd.max !== undefined && usd.max < f.minHourlyRate) return 'hourly_rate_below_min'
   }
 
   const keywords = f.mustHaveAny.filter((k) => k.trim())
   if (keywords.length && !keywords.some((k) => wordRe(k).test(haystack))) return 'keyword_missing'
 
-  if (f.requirePaymentVerified && job.client?.paymentVerified !== true) return 'payment_not_verified'
-  if (f.minClientRating !== undefined && (job.client?.rating ?? 0) < f.minClientRating) return 'client_rating_below_min'
-  if (f.minClientReviews !== undefined && (job.client?.reviews ?? 0) < f.minClientReviews) return 'client_reviews_below_min'
+  const c = job.client
+  if (f.requirePaymentVerified && c?.paymentVerified === false) return 'payment_not_verified'
+  if (f.minClientRating !== undefined && c?.rating !== undefined && c.rating < f.minClientRating) return 'client_rating_below_min'
+  if (f.minClientReviews !== undefined && c?.reviews !== undefined && c.reviews < f.minClientReviews) return 'client_reviews_below_min'
 
   return null
 }

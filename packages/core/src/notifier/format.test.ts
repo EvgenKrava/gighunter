@@ -29,6 +29,8 @@ describe('formatMatchMessage', () => {
     expect(formatMatchMessage(hourly, 'x').text).toContain('💰 $20–40/h USD hourly')
     const none = { ...SAMPLE_MATCH, job: { ...SAMPLE_MATCH.job, budget: null } }
     expect(formatMatchMessage(none, 'x').text).toContain('💰 budget n/a')
+    const inr = { ...SAMPLE_MATCH, job: { ...SAMPLE_MATCH.job, budget: { min: 12500, max: 37500, currency: 'INR', type: 'fixed' as const, rateToUsd: 0.0104 } } }
+    expect(formatMatchMessage(inr, 'x').text).toContain('💰 $12500–37500 INR fixed (≈ $130–390 USD)')
   })
 })
 

@@ -23,7 +23,8 @@ describe('FreelancerSource.fetchRecent', () => {
       skills: ['Next.js', 'Stripe'], postedAt: '2026-09-20T09:20:00.000Z', language: 'en',
       client: { country: 'United States', rating: 4.8, reviews: 12, paymentVerified: true },
     })
-    expect(jobs[1]!.budget).toEqual({ min: 15, max: 25, currency: 'USD', type: 'hourly' })
+    expect(jobs[0]!.budget?.rateToUsd).toBe(1)
+    expect(jobs[1]!.budget).toEqual({ min: 15, max: 25, currency: 'INR', type: 'hourly', rateToUsd: 0.0104 })
   })
   it('throws SourceError rate_limited with retryAfter on 429', async () => {
     const fetchFn = vi.fn().mockResolvedValue(json({ status: 'error' }, 429, { 'retry-after': '30' }))

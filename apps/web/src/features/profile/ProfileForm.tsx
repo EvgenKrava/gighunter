@@ -97,7 +97,7 @@ export function ProfileForm({ initial, onSubmit, saving }: { initial: Profile | 
           </div>
         )} />
         <form.Field name="filters.minHourlyRate" children={(f) => <Field label="Min hourly rate ($/h)" hint="Applies to hourly jobs only"><NumberInput value={f.state.value} onChange={f.handleChange} min={0} /></Field>} />
-        <form.Field name="filters.requirePaymentVerified" children={(f) => <Toggle label="Require payment-verified client" checked={f.state.value} onChange={f.handleChange} />} />
+        <form.Field name="filters.requirePaymentVerified" children={(f) => <Toggle label="Require payment-verified client (when the platform reports it)" checked={f.state.value} onChange={f.handleChange} />} />
         <div className="grid grid-cols-2 gap-3">
           <form.Field name="filters.minClientRating" children={(f) => <Field label="Min client rating (0–5)"><NumberInput value={f.state.value} onChange={f.handleChange} min={0} max={5} step={0.1} /></Field>} />
           <form.Field name="filters.minClientReviews" children={(f) => <Field label="Min client reviews"><NumberInput value={f.state.value} onChange={f.handleChange} min={0} /></Field>} />
