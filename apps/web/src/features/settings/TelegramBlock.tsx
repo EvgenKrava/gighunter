@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SettingsPatch } from '@gighunter/core/schema'
 import { useRemoveToken, useSaveToken, useTelegramTest, type PublicSettings } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
@@ -13,6 +13,7 @@ export function TelegramBlock({ settings, onPatch }: { settings: PublicSettings;
   const toast = useToast()
   const t = settings.telegram
   const [chatId, setChatId] = useState(t.chatId ?? '')
+  useEffect(() => setChatId(t.chatId ?? ''), [t.chatId])
   const wrap = <T,>(p: Promise<T>) => p.then((r) => { toast('Saved', 'success'); return r }).catch((e) => { toast(e.message, 'error'); throw e })
   return (
     <Card className="space-y-3">

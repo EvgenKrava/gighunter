@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { SettingsPatch } from '@gighunter/core/schema'
 import { useRemoveToken, useSaveToken, type PublicSettings } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
@@ -14,6 +14,7 @@ export function FreelancerBlock({ settings, onPatch }: { settings: PublicSetting
   const toast = useToast()
   const f = settings.platforms.freelancer
   const [query, setQuery] = useState(f.query)
+  useEffect(() => setQuery(f.query), [f.query])
   const wrap = <T,>(p: Promise<T>) => p.then((r) => { toast('Saved', 'success'); return r }).catch((e) => { toast(e.message, 'error'); throw e })
   return (
     <Card className="space-y-3">

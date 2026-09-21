@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { RouterContextProvider } from '@tanstack/react-router'
 import { defaultSettings } from '@gighunter/core/schema'
 import { renderWithProviders, setAuth, mockAuth } from '../../test/utils'
+import { ToastProvider } from '../../components/Toast'
 import { CostControls } from './CostControls'
 import { TelegramBlock } from './TelegramBlock'
 import { FreelancerBlock } from './FreelancerBlock'
@@ -62,5 +65,21 @@ describe('FreelancerBlock', () => {
     const q = screen.getByLabelText(/search query/i)
     await userEvent.clear(q); await userEvent.type(q, 'typescript'); await userEvent.tab()
     expect(onPatch).toHaveBeenCalledWith({ platforms: { freelancer: { query: 'typescript' } } })
+  })
+  it('resyncs the search query when settings refetch with a new value', () => {
+    const s: PublicSettings = { ...base(), platforms: { freelancer: { enabled: false, query: 'react', tokenSet: true, tokenHint: '1234', connectedAs: 'yev' }, upwork: { enabled: false } } }
+    const { rerender, queryClient, router } = renderWithProviders(<FreelancerBlock settings={s} onPatch={vi.fn()} />)
+    expect(screen.getByLabelText(/search query/i)).toHaveValue('react')
+    const s2: PublicSettings = { ...s, platforms: { ...s.platforms, freelancer: { ...s.platforms.freelancer, query: 'node' } } }
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <RouterContextProvider router={router as never}>
+            <FreelancerBlock settings={s2} onPatch={vi.fn()} />
+          </RouterContextProvider>
+        </ToastProvider>
+      </QueryClientProvider>,
+    )
+    expect(screen.getByLabelText(/search query/i)).toHaveValue('node')
   })
 })
