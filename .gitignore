@@ -3,6 +3,7 @@ node_modules/
 
 # build output
 dist/
+dev-dist/
 .output/
 *.tsbuildinfo
 
@@ -10,6 +11,9 @@ dist/
 .env
 .env.*
 !.env.example
+# apps/web ships its (non-secret) public client config committed
+!apps/web/.env.development
+!apps/web/.env.production
 
 # terraform
 **/.terraform/

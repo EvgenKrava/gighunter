@@ -7,6 +7,8 @@
   "packageManager": "pnpm@12.4.2",
   "scripts": {
     "build": "pnpm --filter @gighunter/lambdas build",
+    "build:web": "pnpm --filter @gighunter/web build",
+    "dev:web": "pnpm --filter @gighunter/web dev",
     "test": "pnpm -r --if-present test",
     "typecheck": "pnpm -r --if-present typecheck",
     "poller:local": "tsx scripts/poller-local.ts",

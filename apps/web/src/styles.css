@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #4f46e5;
+  --color-brand-dark: #4338ca;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body { min-height: 100dvh; overscroll-behavior-y: none; }
+
+/* Minimal markdown styling for assistant messages (no typography plugin). */
+.md p { margin: 0 0 0.6em; }
+.md p:last-child { margin-bottom: 0; }
+.md ul, .md ol { margin: 0 0 0.6em 1.2em; }
+.md ul { list-style: disc; }
+.md ol { list-style: decimal; }
+.md code { font-size: 0.9em; background: rgb(148 163 184 / 0.2); padding: 0 0.25em; border-radius: 0.25em; }
+.md pre { background: rgb(15 23 42 / 0.9); color: #f1f5f9; padding: 0.75em; border-radius: 0.5em; overflow-x: auto; margin: 0 0 0.6em; }
+.md pre code { background: none; padding: 0; }
+.md h1, .md h2, .md h3 { font-weight: 600; margin: 0.6em 0 0.3em; }
+.md strong { font-weight: 600; }
