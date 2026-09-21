@@ -12,6 +12,8 @@ export function createApp(deps: ApiDeps) {
   const app = new Hono<ApiEnv>()
   app.onError(errorHandler(deps.log))
   app.notFound((c) => c.json({ error: 'not found' }, 404))
+  // CORS preflight: API Gateway attaches the CORS headers; the browser only needs a 2xx before auth.
+  app.options('*', (c) => c.body(null, 204))
   app.use('*', requireAuth)
   app.get('/me', (c) => c.json(c.get('user')))
   app.route('/', profileRoutes(deps))
