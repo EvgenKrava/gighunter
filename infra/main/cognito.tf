@@ -1,5 +1,6 @@
 resource "aws_cognito_user_pool" "main" {
   name                     = var.project
+  user_pool_tier           = "LITE" # largest free tier; Google federation works on every tier
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 

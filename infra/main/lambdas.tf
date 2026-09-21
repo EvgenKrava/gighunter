@@ -12,16 +12,18 @@ resource "aws_cloudwatch_log_group" "fn" {
 }
 
 resource "aws_lambda_function" "poller" {
-  function_name                  = "${var.project}-poller"
-  role                           = aws_iam_role.fn["poller"].arn
-  handler                        = "index.handler"
-  runtime                        = "nodejs22.x"
-  architectures                  = ["arm64"]
-  filename                       = data.archive_file.fn["poller"].output_path
-  source_code_hash               = data.archive_file.fn["poller"].output_base64sha256
-  timeout                        = 300
-  memory_size                    = 512
-  reserved_concurrent_executions = 1
+  function_name    = "${var.project}-poller"
+  role             = aws_iam_role.fn["poller"].arn
+  handler          = "index.handler"
+  runtime          = "nodejs22.x"
+  architectures    = ["arm64"]
+  filename         = data.archive_file.fn["poller"].output_path
+  source_code_hash = data.archive_file.fn["poller"].output_base64sha256
+  # 300 s timeout < 15 min schedule, so two scheduled runs can never overlap.
+  # (reserved_concurrent_executions is not used: the account's concurrency limit is 10, and AWS
+  # requires >= 100 unreserved to allow reservations.)
+  timeout     = 300
+  memory_size = 512
   environment {
     variables = {
       TABLE_NAME = aws_dynamodb_table.main.name

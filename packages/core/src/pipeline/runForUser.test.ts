@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { runForUser, type PipelineDeps } from './runForUser'
+import { runForUser, MAX_SCORED_PER_RUN, type PipelineDeps } from './runForUser'
 import { defaultSettings, type Job, type Match } from '../schema/index'
 import { SourceError } from '../adapters/index'
 import { createLogger } from '../logger'
@@ -103,5 +103,15 @@ describe('runForUser', () => {
     const run = await runForUser(deps, 'u1', 'schedule')
     expect(run.perPlatform.freelancer!.error).toBe('rate_limited')
     expect(store.putRun).toHaveBeenCalledTimes(1)
+  })
+
+  it('caps LLM calls per run and leaves the rest for the next run', async () => {
+    const jobs = Array.from({ length: MAX_SCORED_PER_RUN + 5 }, (_, i) => job(`j${i}`))
+    const { deps, parse, store } = makeDeps({ jobs, score: 10 })
+    const run = await runForUser(deps, 'u1', 'schedule')
+    expect(parse).toHaveBeenCalledTimes(MAX_SCORED_PER_RUN)
+    expect(store.putMatch).toHaveBeenCalledTimes(MAX_SCORED_PER_RUN)
+    expect(run.perPlatform.freelancer!.scored).toBe(MAX_SCORED_PER_RUN)
+    expect(run.errors).toEqual(['score_cap:freelancer:5_skipped'])
   })
 })

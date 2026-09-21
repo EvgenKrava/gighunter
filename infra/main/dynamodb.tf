@@ -60,5 +60,6 @@ resource "aws_dynamodb_table" "main" {
     enabled        = true
   }
 
-  point_in_time_recovery { enabled = true }
+  # Off on purpose: data is disposable (TTL) and PITR bills backup storage.
+  point_in_time_recovery { enabled = false }
 }

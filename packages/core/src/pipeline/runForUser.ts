@@ -21,6 +21,8 @@ export interface PipelineDeps {
 }
 
 const PLATFORM_SECRET: Record<Platform, UserSecretName | null> = { freelancer: 'freelancer/token', upwork: null }
+/** Cost guard: at most this many LLM scoring calls per platform per run. The rest is left unwritten and picked up next run. */
+export const MAX_SCORED_PER_RUN = 20
 const platformQuery = (settings: Settings, platform: Platform) => (platform === 'freelancer' ? settings.platforms.freelancer.query : '')
 const refOf = (m: Match) => ({ platform: m.job.platform, externalId: m.job.externalId })
 const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -96,6 +98,7 @@ export async function runForUser(deps: PipelineDeps, userId: string, trigger: Ru
         const fresh = jobs.filter((j) => !known.has(matchKey(j)))
         s.new = fresh.length
 
+        let skipped = 0
         for (const job of fresh) {
           const nowIso = deps.now().toISOString()
           const ttl = ttlAfterDays(nowIso, MATCH_TTL_DAYS)
@@ -103,6 +106,10 @@ export async function runForUser(deps: PipelineDeps, userId: string, trigger: Ru
           if (reason) {
             await deps.store.putMatch(userId, { job, status: 'filtered', filterReason: reason, createdAt: nowIso, ttl })
             s.filtered++
+            continue
+          }
+          if (s.scored >= MAX_SCORED_PER_RUN) {
+            skipped++
             continue
           }
           let scored: Awaited<ReturnType<typeof scoreJob>>
@@ -120,6 +127,10 @@ export async function runForUser(deps: PipelineDeps, userId: string, trigger: Ru
           await deps.store.putMatch(userId, match)
           s.scored++
           if (status === 'pending' && (await notify(match))) s.notified++
+        }
+        if (skipped) {
+          run.errors.push(`score_cap:${platform}:${skipped}_skipped`)
+          log.warn('score.capped', { platform, skipped, cap: MAX_SCORED_PER_RUN })
         }
       } catch (e) {
         s.error = e instanceof SourceError ? e.code : errMsg(e)
