@@ -2,17 +2,66 @@
   "sub": "smoke-test-user",
   "profile": {
     "displayName": "Yevhenii",
-    "skills": [{ "name": "TypeScript", "level": "expert" }, { "name": "React", "level": "expert" }, { "name": "AWS", "level": "solid" }, { "name": "Node.js", "level": "expert" }],
-    "budget": { "min": 50, "max": 600, "currency": "USD" },
+    "skills": [
+      {
+        "name": "TypeScript",
+        "level": "expert"
+      },
+      {
+        "name": "React",
+        "level": "expert"
+      },
+      {
+        "name": "AWS",
+        "level": "solid"
+      },
+      {
+        "name": "Node.js",
+        "level": "expert"
+      }
+    ],
+    "budget": {
+      "min": 50,
+      "max": 600,
+      "currency": "USD"
+    },
     "maxHours": 6,
-    "languages": ["en"],
-    "stopWords": ["wordpress", "long term", "full-time"],
-    "freeText": "Senior full-stack developer. Evenings only. I like small, well-scoped API integrations, bug fixes and automation scripts."
+    "languages": [
+      "en"
+    ],
+    "stopWords": [
+      "wordpress",
+      "long term",
+      "full-time"
+    ],
+    "freeText": "Senior full-stack developer. Evenings only. I like small, well-scoped API integrations, bug fixes and automation scripts.",
+    "filters": {
+      "mustHaveAny": [
+        "typescript",
+        "react",
+        "node",
+        "aws",
+        "api"
+      ],
+      "jobTypes": [
+        "fixed",
+        "hourly"
+      ],
+      "minHourlyRate": 25,
+      "requirePaymentVerified": true,
+      "minClientRating": 4,
+      "minClientReviews": 1
+    }
   },
   "settings": {
     "active": true,
     "notifyThreshold": 70,
-    "platforms": { "freelancer": { "enabled": true, "query": "typescript react node" } }
+    "platforms": {
+      "freelancer": {
+        "enabled": true,
+        "query": "typescript react node"
+      }
+    }
   },
   "secrets": {
     "telegramBotToken": "123456789:paste-bot-token-here",

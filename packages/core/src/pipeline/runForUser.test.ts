@@ -1,11 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
+import { defaultProfileFilters } from '../schema/index'
 import { runForUser, MAX_SCORED_PER_RUN, type PipelineDeps } from './runForUser'
 import { defaultSettings, type Job, type Match } from '../schema/index'
 import { SourceError } from '../adapters/index'
 import { createLogger } from '../logger'
 
 const nowIso = '2026-09-20T12:00:00.000Z'
-const profile = { displayName: 'Yev', skills: [{ name: 'React', level: 'expert' as const }], budget: { min: 50, max: 500, currency: 'USD' as const }, maxHours: 6, languages: ['en'], stopWords: ['wordpress'], freeText: '', updatedAt: nowIso }
+const profile = { displayName: 'Yev', skills: [{ name: 'React', level: 'expert' as const }], budget: { min: 50, max: 500, currency: 'USD' as const }, maxHours: 6, languages: ['en'], stopWords: ['wordpress'], freeText: '', filters: defaultProfileFilters(), updatedAt: nowIso }
 const settings = () => {
   const s = defaultSettings(nowIso)
   s.active = true

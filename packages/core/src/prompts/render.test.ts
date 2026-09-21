@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { defaultProfileFilters } from '../schema/index'
 import {
   renderTemplate, renderProfile, renderJob, renderScore, resolvePrompts,
   buildScoringSystemPrompt, buildChatSystemPrompt, DEFAULT_SCORING_PROMPT, DEFAULT_QUICK_ACTIONS, SAMPLE_JOB, SAMPLE_MATCH,
@@ -8,7 +9,7 @@ import type { Profile } from '../schema/index'
 const profile: Profile = {
   displayName: 'Yev', skills: [{ name: 'TypeScript', level: 'expert' }, { name: 'React', level: 'solid' }],
   budget: { min: 50, max: 500, currency: 'USD' }, maxHours: 6, languages: ['en', 'uk'], stopWords: ['wordpress'],
-  freeText: 'I like small API integrations.', updatedAt: '2026-09-20T10:00:00.000Z',
+  freeText: 'I like small API integrations.', filters: defaultProfileFilters(), updatedAt: '2026-09-20T10:00:00.000Z',
 }
 
 describe('renderTemplate', () => {

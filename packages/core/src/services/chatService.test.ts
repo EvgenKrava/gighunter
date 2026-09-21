@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { defaultProfileFilters } from '../schema/index'
 import { sendChatMessage } from './chatService'
 import { defaultSettings, CHAT_MAX_MESSAGES } from '../schema/index'
 import { SAMPLE_MATCH } from '../prompts/index'
@@ -7,7 +8,7 @@ import type { LlmClient } from '../llm/index'
 
 const nowIso = '2026-09-20T10:00:00.000Z'
 const now = () => new Date(nowIso)
-const profile = { displayName: 'Yev', skills: [], budget: { min: 1, max: 9, currency: 'USD' as const }, maxHours: 4, languages: ['en'], stopWords: [], freeText: '', updatedAt: nowIso }
+const profile = { displayName: 'Yev', skills: [], budget: { min: 1, max: 9, currency: 'USD' as const }, maxHours: 4, languages: ['en'], stopWords: [], freeText: '', filters: defaultProfileFilters(), updatedAt: nowIso }
 const ref = { platform: 'freelancer' as const, externalId: 'sample-1' }
 
 function makeDeps(opts: { match?: unknown; chat?: unknown; reply?: string } = {}) {

@@ -143,8 +143,16 @@ Profile {
   budget: { min: number; max: number; currency: 'USD' }   // acceptable fixed-price range per gig
   maxHours: number                                        // max effort per gig
   languages: string[]                                     // ISO 639-1, e.g. ['en', 'uk']
-  stopWords: string[]                                     // case-insensitive, matched in title+description
+  stopWords: string[]                                     // whole-word, case-insensitive, matched in title+description
   freeText: string                                        // "about me / what I'm looking for", ≤ 4000 chars
+  filters: {                                              // deterministic pre-AI filters; all optional with permissive defaults
+    mustHaveAny: string[]                                 // at least one must appear (whole-word) in title+description; empty = off
+    jobTypes: ('fixed' | 'hourly')[]                      // default both
+    minHourlyRate?: number                                // hourly jobs whose max rate is below this are dropped
+    requirePaymentVerified: boolean                       // default false; unknown client counts as unverified
+    minClientRating?: number                              // 0–5
+    minClientReviews?: number
+  }
   updatedAt: string
 }
 
@@ -296,12 +304,17 @@ interface JobSource {
 Evaluated in order; the first hit wins and becomes `filterReason`:
 
 1. `stale` — `postedAt` older than `settings.maxJobAgeHours`.
-2. `stop_word:<w>` — any `profile.stopWords` entry found case-insensitively in title or description.
+2. `stop_word:<w>` — any `profile.stopWords` entry found as a whole word, case-insensitively, in title or description.
 3. `language` — `job.language` is set and not in `profile.languages`.
-4. `budget_below_min` — fixed-price job with `budget.max < profile.budget.min`.
-5. `budget_above_max` — fixed-price job with `budget.min > profile.budget.max`.
+4. `job_type:<t>` — `budget.type` not in `filters.jobTypes`.
+5. `budget_below_min` — fixed-price job with `budget.max < profile.budget.min`.
+6. `budget_above_max` — fixed-price job with `budget.min > profile.budget.max`.
+7. `hourly_rate_below_min` — hourly job with `budget.max < filters.minHourlyRate`.
+8. `keyword_missing` — `filters.mustHaveAny` is non-empty and none of its entries appears (whole word) in title or description.
+9. `payment_not_verified` — `filters.requirePaymentVerified` and the client is not known to be verified.
+10. `client_rating_below_min` / `client_reviews_below_min` — client stats (missing = 0) below the configured minimums.
 
-Hourly jobs and jobs with `budget = null` skip the budget rules; the LLM judges them.
+Jobs with `budget = null` skip the budget and rate rules; the LLM judges them. The per-run scoring cap (`MAX_SCORED_PER_RUN = 20` per platform) is a cost guard, not a filter: jobs beyond it are left unwritten and picked up next run, and the run records `score_cap:<platform>:<n>_skipped`.
 
 ## 9. LLM usage
 
