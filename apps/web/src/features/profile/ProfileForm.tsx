@@ -52,7 +52,7 @@ export function ProfileForm({ initial, onSubmit, saving }: { initial: Profile | 
                 </div>
               ))}
             </div>
-            <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={() => f.pushValue({ name: '', level: 'solid' })}>Add skill</Button>
+            <Button type="button" variant="secondary" className="mt-2" onClick={() => f.pushValue({ name: '', level: 'solid' })}>Add skill</Button>
           </div>
         )} />
         <form.Field name="freeText" children={(f) => (
