@@ -13,7 +13,7 @@ describe('AppShell', () => {
     expect(screen.getAllByRole('link', { name: /jobs/i }).length).toBeGreaterThan(0)
     expect(screen.getAllByRole('link', { name: /settings/i }).length).toBeGreaterThan(0)
     expect(screen.getByText('content')).toBeInTheDocument()
-    expect(screen.getByText('me@example.com')).toBeInTheDocument()
+    expect(screen.getAllByText('me@example.com').length).toBeGreaterThan(0)
     await userEvent.click(screen.getAllByRole('button', { name: /sign out/i })[0]!)
     expect(auth.removeUser).toHaveBeenCalled()
   })

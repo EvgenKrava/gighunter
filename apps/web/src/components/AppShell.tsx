@@ -23,14 +23,15 @@ export function AppShell({ user, children }: { user: { email: string }; children
           <div className="ml-auto flex items-center gap-2">
             <RunNowButton />
             <span className="text-sm text-slate-500">{user.email}</span>
-            <button className="grid h-10 w-10 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" onClick={signOut} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
+            <button className="grid h-11 w-11 place-items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800" onClick={signOut} aria-label="Sign out" title="Sign out"><LogOut size={18} /></button>
           </div>
         </div>
       </header>
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur md:hidden dark:border-slate-800 dark:bg-slate-950/90">
         <Link to="/jobs" className="text-lg font-semibold text-brand">GigHunter</Link>
-        <div className="ml-auto flex items-center gap-2">
+        <span className="ml-auto min-w-0 max-w-[40%] truncate text-xs text-slate-500">{user.email}</span>
+        <div className="flex items-center gap-2">
           <RunNowButton compact />
           <button className="grid h-11 w-11 place-items-center rounded-lg" onClick={signOut} aria-label="Sign out"><LogOut size={18} /></button>
         </div>
