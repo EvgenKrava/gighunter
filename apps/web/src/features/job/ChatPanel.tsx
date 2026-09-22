@@ -18,7 +18,13 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
   const endRef = useRef<HTMLDivElement>(null)
   const messages: ChatMessage[] = chat?.messages ?? []
 
-  useEffect(() => { endRef.current?.scrollIntoView({ block: 'end' }) }, [messages.length, pendingText])
+  // The marker sits after the sticky composer, so bringing it into view lands the composer at its
+  // resting spot with the latest reply visible above it; a marker before the composer would leave
+  // the reply hidden under it. Nothing to reveal in an empty chat, so keep the job header in view.
+  useEffect(() => {
+    if (messages.length === 0 && !pendingText) return
+    endRef.current?.scrollIntoView({ block: 'end' })
+  }, [messages.length, pendingText])
 
   const submit = (text: string) => {
     const message = text.trim()
@@ -49,12 +55,13 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
           <p className="text-sm text-slate-500" role="status">Thinking…</p>
         </>)}
         {truncated && <p className="text-xs text-amber-700">The reply was cut off by the length limit — ask to continue.</p>}
-        <div ref={endRef} />
       </div>
-      <div className="sticky bottom-16 z-30 -mx-4 mt-4 border-t border-slate-200 bg-white px-4 pb-[env(safe-area-inset-bottom)] pt-2 md:bottom-0 dark:border-slate-800 dark:bg-slate-950">
+      {/* Sticks right on top of the bottom nav on phones (shared --bottom-nav height), on the viewport edge on desktop. */}
+      <div className="sticky bottom-(--bottom-nav) z-30 -mx-4 mt-4 border-t border-slate-200 bg-white px-4 pb-2 pt-2 md:bottom-0 md:pb-[max(0.5rem,env(safe-area-inset-bottom))] dark:border-slate-800 dark:bg-slate-950">
         {quickActions.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {quickActions.map((q) => <button key={q.label} type="button" disabled={send.isPending} onClick={() => submit(q.text)} className="min-h-11 rounded-full border border-slate-300 px-3 text-sm disabled:opacity-50 dark:border-slate-700">{q.label}</button>)}
+          // One swipeable row on phones — two wrapped rows plus the nav ate a third of the screen.
+          <div className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+            {quickActions.map((q) => <button key={q.label} type="button" disabled={send.isPending} onClick={() => submit(q.text)} className="min-h-11 shrink-0 rounded-full border border-slate-300 px-3 text-sm disabled:opacity-50 dark:border-slate-700">{q.label}</button>)}
           </div>
         )}
         <div className="flex items-end gap-2">
@@ -63,6 +70,7 @@ export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef
           <Button onClick={() => submit(draft)} disabled={!draft.trim()} loading={send.isPending} aria-label="Send"><SendHorizontal size={18} /></Button>
         </div>
       </div>
+      <div ref={endRef} className="scroll-mb-(--bottom-nav) md:scroll-mb-0" />
       <ConfirmDialog open={confirmReset} title="Reset this chat?" body="The conversation for this job will be deleted." confirmLabel="Reset" danger
         onCancel={() => setConfirmReset(false)} onConfirm={() => { setConfirmReset(false); reset.mutate(undefined, { onError: (e) => toast(e.message, 'error') }) }} />
     </section>

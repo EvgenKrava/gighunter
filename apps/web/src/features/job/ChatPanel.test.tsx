@@ -39,4 +39,19 @@ describe('ChatPanel', () => {
     await waitFor(() => expect(fetchFn.mock.calls.some((c) => (c[1] as RequestInit).method === 'DELETE')).toBe(true))
     fetchFn.mockRestore()
   })
+  it('auto-scrolls to a marker after the composer so the latest reply is not hidden under it', () => {
+    const scrolled: Element[] = []
+    const spy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(function (this: Element) { scrolled.push(this) })
+    renderWithProviders(<ChatPanel matchRef={ref} chat={chat} quickActions={quick} />)
+    expect(scrolled).toHaveLength(1)
+    const textarea = screen.getByPlaceholderText(/ask about this job/i)
+    expect(textarea.compareDocumentPosition(scrolled[0]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    spy.mockRestore()
+  })
+  it('leaves the page alone when the chat is empty', () => {
+    const spy = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => {})
+    renderWithProviders(<ChatPanel matchRef={ref} chat={null} quickActions={quick} />)
+    expect(spy).not.toHaveBeenCalled()
+    spy.mockRestore()
+  })
 })

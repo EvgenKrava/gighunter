@@ -33,9 +33,9 @@ export function AppShell({ user, children }: { user: { email: string }; children
           <UserMenu email={user.email} onSignOut={signOut} />
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-4 md:pb-8">{children}</main>
+      <main className="mx-auto max-w-3xl px-4 pb-[calc(var(--bottom-nav)+1rem)] pt-4 md:pb-8">{children}</main>
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-slate-800 dark:bg-slate-950" aria-label="Primary">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid h-(--bottom-nav) grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-slate-800 dark:bg-slate-950" aria-label="Primary">
         {nav.map(({ to, label, Icon }) => (
           <Link key={to} to={to} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs text-slate-500 [&.active]:text-brand">
             <Icon size={22} />{label}
