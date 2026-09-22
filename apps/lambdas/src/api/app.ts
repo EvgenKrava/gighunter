@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { requireAuth, type ApiEnv } from './auth'
 import type { ApiDeps } from './deps'
 import { errorHandler } from './errors'
+import { accountRoutes } from './routes/account'
 import { matchesRoutes } from './routes/matches'
 import { profileRoutes } from './routes/profile'
 import { promptsRoutes } from './routes/prompts'
@@ -16,6 +17,7 @@ export function createApp(deps: ApiDeps) {
   app.options('*', (c) => c.body(null, 204))
   app.use('*', requireAuth)
   app.get('/me', (c) => c.json(c.get('user')))
+  app.route('/', accountRoutes(deps))
   app.route('/', profileRoutes(deps))
   app.route('/', settingsRoutes(deps))
   app.route('/', promptsRoutes(deps))

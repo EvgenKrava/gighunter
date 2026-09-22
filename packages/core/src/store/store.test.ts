@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mockClient } from 'aws-sdk-client-mock'
-import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, BatchGetCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
+import { DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, BatchGetCommand, BatchWriteCommand, UpdateCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb'
 import { DynamoDBClient, ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb'
 import { Store } from './store'
 import { defaultSettings } from '../schema/index'
@@ -109,5 +109,30 @@ describe('runs + chat', () => {
     ddb.on(DeleteCommand).resolves({})
     await store.deleteChat('u1', { platform: 'freelancer', externalId: '1' })
     expect(ddb.commandCalls(DeleteCommand)[0]!.args[0].input.Key).toEqual({ pk: 'USER#u1', sk: 'CHAT#freelancer#1' })
+  })
+})
+
+describe('deleteUser', () => {
+  it('deletes every item under the user partition in batches of 25, following pagination and retrying unprocessed keys', async () => {
+    const keys = (n: number, from = 0) => Array.from({ length: n }, (_, i) => ({ pk: 'USER#u1', sk: `ITEM#${from + i}` }))
+    ddb.on(QueryCommand)
+      .resolvesOnce({ Items: keys(30), LastEvaluatedKey: { pk: 'USER#u1', sk: 'ITEM#29' } })
+      .resolvesOnce({ Items: keys(2, 30) })
+    ddb.on(BatchWriteCommand)
+      .resolvesOnce({ UnprocessedItems: { tbl: [{ DeleteRequest: { Key: { pk: 'USER#u1', sk: 'ITEM#3' } } }] } })
+      .resolves({})
+    await store.deleteUser('u1')
+    const q = ddb.commandCalls(QueryCommand)
+    expect(q[0]!.args[0].input).toMatchObject({ KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: { ':pk': 'USER#u1' }, ProjectionExpression: 'pk, sk' })
+    expect(q[1]!.args[0].input.ExclusiveStartKey).toEqual({ pk: 'USER#u1', sk: 'ITEM#29' })
+    const batches = ddb.commandCalls(BatchWriteCommand).map((c) => c.args[0].input.RequestItems.tbl as { DeleteRequest: { Key: { sk: string } } }[])
+    expect(batches.map((b) => b.length)).toEqual([25, 1, 5, 2])
+    expect(batches[1]![0]!.DeleteRequest.Key.sk).toBe('ITEM#3')
+    expect(batches.flat().map((r) => r.DeleteRequest.Key.sk).sort()).toEqual([...keys(32).map((k) => k.sk), 'ITEM#3'].sort())
+  })
+  it('is a no-op for an unknown user', async () => {
+    ddb.on(QueryCommand).resolves({ Items: [] })
+    await store.deleteUser('nobody')
+    expect(ddb.commandCalls(BatchWriteCommand)).toHaveLength(0)
   })
 })

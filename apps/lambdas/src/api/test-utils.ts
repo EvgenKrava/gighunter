@@ -9,7 +9,7 @@ export function makeApiDeps(overrides: Partial<Record<keyof ApiDeps, unknown>> &
     getPrompts: vi.fn().mockResolvedValue(null), putPrompts: vi.fn(),
     getMatch: vi.fn().mockResolvedValue(null), listMatches: vi.fn().mockResolvedValue({ items: [] }), setMatchFeedback: vi.fn().mockResolvedValue(null),
     getChat: vi.fn().mockResolvedValue(null), putChat: vi.fn(), deleteChat: vi.fn(),
-    listRuns: vi.fn().mockResolvedValue([]), putRun: vi.fn(), listActiveUsers: vi.fn().mockResolvedValue([]), existingMatchKeys: vi.fn(), putMatch: vi.fn(), updateMatchStatus: vi.fn(),
+    listRuns: vi.fn().mockResolvedValue([]), putRun: vi.fn(), listActiveUsers: vi.fn().mockResolvedValue([]), existingMatchKeys: vi.fn(), putMatch: vi.fn(), updateMatchStatus: vi.fn(), deleteUser: vi.fn(),
     ...(overrides.store ?? {}),
   }
   const { store: _s, ...rest } = overrides
@@ -23,6 +23,7 @@ export function makeApiDeps(overrides: Partial<Record<keyof ApiDeps, unknown>> &
     log: createLogger({}, () => {}),
     apiBaseUrl: 'https://api.test',
     invokePoller: vi.fn().mockResolvedValue(undefined),
+    deleteIdentity: vi.fn().mockResolvedValue(undefined),
     ...(rest as Partial<ApiDeps>),
   }
 }

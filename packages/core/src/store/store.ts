@@ -1,5 +1,5 @@
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb'
-import { BatchGetCommand, DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
+import { BatchGetCommand, BatchWriteCommand, DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb'
 import {
   ChatSchema, MatchSchema, ProfileSchema, PromptsSchema, RunSchema, SettingsSchema,
   type Chat, type Feedback, type Match, type MatchRef, type MatchStatus, type Profile, type Prompts, type Run, type Settings,
@@ -199,5 +199,33 @@ export class Store {
   }
   async deleteChat(userId: string, ref: MatchRef): Promise<void> {
     await this.doc.send(new DeleteCommand({ TableName: this.tableName, Key: { pk: userPk(userId), sk: chatSk(ref) } }))
+  }
+
+  // --- account ----------------------------------------------------------------------
+  /** Removes every item in the user's partition: profile, settings, prompts, matches, runs, chats. */
+  async deleteUser(userId: string): Promise<void> {
+    let ExclusiveStartKey: Item | undefined
+    do {
+      const r = await this.doc.send(
+        new QueryCommand({
+          TableName: this.tableName,
+          KeyConditionExpression: 'pk = :pk',
+          ExpressionAttributeValues: { ':pk': userPk(userId) },
+          ProjectionExpression: 'pk, sk',
+          ExclusiveStartKey,
+        }),
+      )
+      const keys = (r.Items ?? []).map((i) => ({ pk: i.pk, sk: i.sk }))
+      for (let i = 0; i < keys.length; i += 25) await this.batchDelete(keys.slice(i, i + 25))
+      ExclusiveStartKey = r.LastEvaluatedKey
+    } while (ExclusiveStartKey)
+  }
+  private async batchDelete(keys: Item[]): Promise<void> {
+    let pending = keys.map((Key) => ({ DeleteRequest: { Key } }))
+    for (let attempt = 0; pending.length > 0; attempt++) {
+      if (attempt === 5) throw new Error(`BatchWrite left ${pending.length} items unprocessed after ${attempt} attempts`)
+      const r = await this.doc.send(new BatchWriteCommand({ RequestItems: { [this.tableName]: pending } }))
+      pending = (r.UnprocessedItems?.[this.tableName] ?? []) as typeof pending
+    }
   }
 }
