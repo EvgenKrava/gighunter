@@ -2,9 +2,9 @@ import { createFileRoute } from '@tanstack/react-router'
 import { MatchStatusSchema } from '@gighunter/core/schema'
 import { useMatches, useRuns } from '../api/hooks'
 import { Button } from '../components/ui/Button'
-import { Spinner } from '../components/ui/Spinner'
+import { SkeletonPage } from '../components/ui/Skeleton'
 import { LastRun } from '../features/jobs/LastRun'
-import { MatchCard } from '../features/jobs/MatchCard'
+import { MatchCard, MatchCardSkeleton } from '../features/jobs/MatchCard'
 import { StatusChips } from '../features/jobs/StatusChips'
 
 export const Route = createFileRoute('/_app/jobs/')({
@@ -31,7 +31,7 @@ function JobsPage() {
         <LastRun runs={runs.data} />
       </div>
       <StatusChips current={status} />
-      {matches.isLoading && <div className="py-8 text-center text-slate-500"><Spinner /></div>}
+      {matches.isLoading && <SkeletonPage className="space-y-3">{[0, 1, 2].map((i) => <MatchCardSkeleton key={i} />)}</SkeletonPage>}
       {matches.error && <p className="text-red-600">{matches.error.message}</p>}
       {!matches.isLoading && items.length === 0 && <p className="text-slate-500">{empty[status]}</p>}
       <div className="space-y-3">{items.map((m) => <MatchCard key={`${m.job.platform}#${m.job.externalId}`} match={m} />)}</div>

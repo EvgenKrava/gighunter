@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createFileRoute, Outlet, useLocation, useNavigate } from '@tanstack/react-router'
 import { useAuthUser } from '../auth/useAuthUser'
 import { AppShell } from '../components/AppShell'
+import { FormCardSkeleton, Skeleton, SkeletonPage } from '../components/ui/Skeleton'
 
 export const Route = createFileRoute('/_app')({ component: AppGuard })
 
@@ -20,7 +21,16 @@ function AppGuard() {
     sessionStorage.setItem('returnTo', href)
     void navigate({ to: '/', replace: true })
   }, [user, isLoading, href, navigate])
-  if (!user) return <main className="p-6 text-slate-600">Loading…</main>
+  if (!user) {
+    return (
+      <AppShell>
+        <SkeletonPage className="space-y-4">
+          <Skeleton className="h-7 w-28" />
+          <FormCardSkeleton fields={3} />
+        </SkeletonPage>
+      </AppShell>
+    )
+  }
   return (
     <AppShell user={user}>
       <Outlet />

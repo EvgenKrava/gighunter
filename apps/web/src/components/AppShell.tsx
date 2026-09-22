@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Activity, Briefcase, Settings, User } from 'lucide-react'
 import { useAuthUser } from '../auth/useAuthUser'
+import { Skeleton } from './ui/Skeleton'
 import { UserMenu } from './UserMenu'
 
 const nav = [
@@ -11,8 +12,10 @@ const nav = [
   { to: '/settings', label: 'Settings', Icon: Settings },
 ] as const
 
-export function AppShell({ user, children }: { user: { email: string }; children: ReactNode }) {
+/** `user` is missing only while the session is still being read on a cold start; the shell then shows a blank avatar. */
+export function AppShell({ user, children }: { user?: { email: string }; children: ReactNode }) {
   const { signOut } = useAuthUser()
+  const account = user ? <UserMenu email={user.email} onSignOut={signOut} /> : <Skeleton className="h-11 w-11 rounded-full" />
   const linkClass = 'rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 [&.active]:bg-indigo-50 [&.active]:text-brand dark:text-slate-300 dark:hover:bg-slate-800'
   return (
     <div className="min-h-dvh">
@@ -21,17 +24,13 @@ export function AppShell({ user, children }: { user: { email: string }; children
         <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-2">
           <Link to="/jobs" search={{ status: 'notified' }} className="mr-4 text-lg font-semibold text-brand">GigHunter</Link>
           {nav.map(({ to, label }) => <Link key={to} to={to} className={linkClass}>{label}</Link>)}
-          <div className="ml-auto">
-            <UserMenu email={user.email} onSignOut={signOut} />
-          </div>
+          <div className="ml-auto">{account}</div>
         </div>
       </header>
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 flex items-center gap-2 border-b border-slate-200 bg-white/90 px-4 py-2 backdrop-blur md:hidden dark:border-slate-800 dark:bg-slate-950/90">
         <Link to="/jobs" search={{ status: 'notified' }} className="text-lg font-semibold text-brand">GigHunter</Link>
-        <div className="ml-auto">
-          <UserMenu email={user.email} onSignOut={signOut} />
-        </div>
+        <div className="ml-auto">{account}</div>
       </header>
       <main className="mx-auto max-w-3xl px-4 pb-[calc(var(--bottom-nav)+1rem)] pt-4 md:pb-8">{children}</main>
       {/* Mobile bottom nav */}

@@ -6,12 +6,12 @@ import { useToast } from '../../components/Toast'
 import { Button } from '../../components/ui/Button'
 import { Card } from '../../components/ui/Card'
 import { Details } from '../../components/ui/Details'
-import { Spinner } from '../../components/ui/Spinner'
+import { FormCardSkeleton, SkeletonPage } from '../../components/ui/Skeleton'
 import { Textarea, TextInput } from '../../components/ui/Inputs'
 
 export function PromptsBlock() {
   const q = usePrompts()
-  if (q.isLoading || !q.data) return <Card>{q.error ? <p className="text-red-600">{q.error.message}</p> : <Spinner />}</Card>
+  if (q.isLoading || !q.data) return q.error ? <Card><p className="text-red-600">{q.error.message}</p></Card> : <SkeletonPage><FormCardSkeleton fields={2} /></SkeletonPage>
   const { defaults, overrides, placeholders } = q.data
   return (
     <Card className="space-y-5">

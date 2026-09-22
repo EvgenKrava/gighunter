@@ -6,6 +6,7 @@ import { useResetChat, useSendChat } from '../../api/hooks'
 import { useToast } from '../../components/Toast'
 import { Button } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Skeleton } from '../../components/ui/Skeleton'
 
 export function ChatPanel({ matchRef, chat, quickActions }: { matchRef: MatchRef; chat: Chat | null; quickActions: QuickAction[] }) {
   const send = useSendChat(matchRef)
@@ -88,3 +89,21 @@ function Bubble({ m, onCopy }: { m: ChatMessage; onCopy?: () => void }) {
     </div>
   )
 }
+
+export const ChatPanelSkeleton = () => (
+  <div>
+    <Skeleton className="mb-3 h-6 w-16" />
+    <div className="space-y-3">
+      <div className="flex justify-end"><Skeleton className="h-16 w-3/4 rounded-2xl" /></div>
+      <div className="flex justify-start"><Skeleton className="h-28 w-5/6 rounded-2xl" /></div>
+    </div>
+    <div className="mt-4 flex gap-2">
+      <Skeleton className="h-11 w-28 rounded-full" />
+      <Skeleton className="h-11 w-28 rounded-full" />
+    </div>
+    <div className="mt-2 flex items-end gap-2">
+      <Skeleton className="h-11 flex-1 rounded-lg" />
+      <Skeleton className="h-11 w-12 rounded-lg" />
+    </div>
+  </div>
+)

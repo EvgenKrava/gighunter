@@ -1,5 +1,6 @@
 import type { Run } from '@gighunter/core/schema'
 import { Details } from '../../components/ui/Details'
+import { Skeleton } from '../../components/ui/Skeleton'
 import { timeAgo } from '../../lib/format'
 
 const k = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n))
@@ -28,3 +29,18 @@ export function RunsList({ runs }: { runs: Run[] }) {
     </ul>
   )
 }
+
+export const RunsListSkeleton = () => (
+  <ul className="space-y-2">
+    {[0, 1, 2].map((i) => (
+      <li key={i} className="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-3.5 w-16" />
+          <Skeleton className="h-3.5 w-12" />
+          <Skeleton className="ml-auto h-3.5 w-14" />
+        </div>
+        <Skeleton className="mt-2.5 h-3.5 w-3/4" />
+      </li>
+    ))}
+  </ul>
+)

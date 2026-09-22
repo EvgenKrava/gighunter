@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ThumbsDown, ThumbsUp } from 'lucide-react'
 import type { Match } from '@gighunter/core/schema'
 import { Badge } from '../../components/ui/Badge'
+import { Skeleton } from '../../components/ui/Skeleton'
 import { budgetLabel, timeAgo, verdictTone } from '../../lib/format'
 
 const platformLabel = { freelancer: 'Freelancer', upwork: 'Upwork' } as const
@@ -29,3 +30,23 @@ export function MatchCard({ match }: { match: Match }) {
     </article>
   )
 }
+
+/** Same card frame as MatchCard so the feed does not jump when the page lands. */
+export const MatchCardSkeleton = () => (
+  <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+    <div className="flex items-start gap-3">
+      <Skeleton className="h-12 w-12 shrink-0 rounded-lg" />
+      <div className="min-w-0 flex-1 space-y-2 pt-1">
+        <Skeleton className="h-4 w-4/5" />
+        <Skeleton className="h-3.5 w-1/2" />
+      </div>
+    </div>
+    <div className="mt-3 flex items-center gap-2">
+      <Skeleton className="h-5 w-14 rounded-full" />
+      <Skeleton className="h-3.5 w-10" />
+      <Skeleton className="ml-auto h-3.5 w-12" />
+    </div>
+    <Skeleton className="mt-3 h-3.5 w-full" />
+    <Skeleton className="mt-1.5 h-3.5 w-2/3" />
+  </div>
+)
