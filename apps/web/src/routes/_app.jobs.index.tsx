@@ -1,11 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { MatchStatusSchema } from '@gighunter/core/schema'
 import { useMatches, useRuns } from '../api/hooks'
-import { RunNowButton } from '../components/RunNowButton'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
+import { LastRun } from '../features/jobs/LastRun'
 import { MatchCard } from '../features/jobs/MatchCard'
-import { RunsList } from '../features/jobs/RunsList'
 import { StatusChips } from '../features/jobs/StatusChips'
 
 export const Route = createFileRoute('/_app/jobs/')({
@@ -26,10 +25,10 @@ function JobsPage() {
   const runs = useRuns()
   const items = matches.data?.pages.flatMap((p) => p.items) ?? []
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4">
+      <div>
         <h1 className="text-xl font-semibold">Jobs</h1>
-        <RunNowButton />
+        <LastRun runs={runs.data} />
       </div>
       <StatusChips current={status} />
       {matches.isLoading && <div className="py-8 text-center text-slate-500"><Spinner /></div>}
@@ -37,12 +36,6 @@ function JobsPage() {
       {!matches.isLoading && items.length === 0 && <p className="text-slate-500">{empty[status]}</p>}
       <div className="space-y-3">{items.map((m) => <MatchCard key={`${m.job.platform}#${m.job.externalId}`} match={m} />)}</div>
       {matches.hasNextPage && <Button variant="secondary" className="w-full" onClick={() => matches.fetchNextPage()} loading={matches.isFetchingNextPage}>Load more</Button>}
-      <section>
-        <h2 className="mb-2 text-lg font-semibold">Recent runs</h2>
-        {runs.isLoading && <div className="py-8 text-center text-slate-500"><Spinner /></div>}
-        {runs.error && <p className="text-red-600">{runs.error.message}</p>}
-        {!runs.isLoading && !runs.error && <RunsList runs={runs.data ?? []} />}
-      </section>
     </div>
   )
 }

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppActivityRouteImport } from './routes/_app.activity'
 import { Route as AppProfileRouteImport } from './routes/_app.profile'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppJobsIndexRouteImport } from './routes/_app.jobs.index'
@@ -30,6 +31,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppActivityRoute = AppActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
@@ -55,6 +61,7 @@ const AppJobsPlatformIdRoute = AppJobsPlatformIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/activity': typeof AppActivityRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/jobs/': typeof AppJobsIndexRoute
@@ -63,6 +70,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
+  '/activity': typeof AppActivityRoute
   '/profile': typeof AppProfileRoute
   '/settings': typeof AppSettingsRoute
   '/jobs': typeof AppJobsIndexRoute
@@ -73,6 +81,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
+  '/_app/activity': typeof AppActivityRoute
   '/_app/profile': typeof AppProfileRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/jobs/': typeof AppJobsIndexRoute
@@ -81,15 +90,28 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/login' | '/profile' | '/settings' | '/jobs/' | '/jobs/$platform/$id'
+    | '/'
+    | '/login'
+    | '/activity'
+    | '/profile'
+    | '/settings'
+    | '/jobs/'
+    | '/jobs/$platform/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/login' | '/profile' | '/settings' | '/jobs' | '/jobs/$platform/$id'
+    | '/'
+    | '/login'
+    | '/activity'
+    | '/profile'
+    | '/settings'
+    | '/jobs'
+    | '/jobs/$platform/$id'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/login'
+    | '/_app/activity'
     | '/_app/profile'
     | '/_app/settings'
     | '/_app/jobs/'
@@ -125,6 +147,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/activity': {
+      id: '/_app/activity'
+      path: '/activity'
+      fullPath: '/activity'
+      preLoaderRoute: typeof AppActivityRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/profile': {
       id: '/_app/profile'
       path: '/profile'
@@ -157,6 +186,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AppRouteChildren {
+  AppActivityRoute: typeof AppActivityRoute
   AppProfileRoute: typeof AppProfileRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppJobsIndexRoute: typeof AppJobsIndexRoute
@@ -164,6 +194,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppActivityRoute: AppActivityRoute,
   AppProfileRoute: AppProfileRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppJobsIndexRoute: AppJobsIndexRoute,

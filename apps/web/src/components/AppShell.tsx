@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Briefcase, Settings, User } from 'lucide-react'
+import { Activity, Briefcase, Settings, User } from 'lucide-react'
 import { useAuthUser } from '../auth/useAuthUser'
 import { UserMenu } from './UserMenu'
 
 const nav = [
   { to: '/jobs', label: 'Jobs', Icon: Briefcase },
+  { to: '/activity', label: 'Activity', Icon: Activity },
   { to: '/profile', label: 'Profile', Icon: User },
   { to: '/settings', label: 'Settings', Icon: Settings },
 ] as const
@@ -34,7 +35,7 @@ export function AppShell({ user, children }: { user: { email: string }; children
       </header>
       <main className="mx-auto max-w-3xl px-4 pb-24 pt-4 md:pb-8">{children}</main>
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-3 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-slate-800 dark:bg-slate-950" aria-label="Primary">
+      <nav className="fixed inset-x-0 bottom-0 z-40 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden dark:border-slate-800 dark:bg-slate-950" aria-label="Primary">
         {nav.map(({ to, label, Icon }) => (
           <Link key={to} to={to} className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs text-slate-500 [&.active]:text-brand">
             <Icon size={22} />{label}

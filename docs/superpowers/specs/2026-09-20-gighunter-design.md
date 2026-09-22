@@ -427,10 +427,11 @@ Routes:
   3. **Upwork** — disabled; link to API access application.
   4. **Matching & AI** — **Job search ON/OFF** (`active`) and **poll every** 15 min / 30 min / 1 h / 2 h / 4 h / 12 h / 24 h (`pollIntervalMinutes`) shown first as the cost controls; notify threshold slider (default 70), max job age, scoring model dropdown, chat model dropdown.
   5. **Prompts** — two textareas (*Scoring prompt*, *Chat prompt*) pre-filled with the shipped default or the user's override; a hint listing the available `{{placeholders}}`; per-field **Reset to default**; **Preview** renders the template with the real profile and a bundled sample job and shows the exact text the model will receive. Below: **Quick actions** editor — rows of label + text, add/remove/reorder, max 8, **Reset to default**.
-- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Below: last 10 RUNs with per-platform counts, token usage, errors.
+- `/jobs` — feed of MATCH items (GSI2), status filter chips (`notified` / `pending` / `scored` / `filtered`, default `notified`), score, verdict badge, reasoning, risks, feedback marker, link. Each row links to the job detail. Under the title, one line summarising the latest run ("Last search 12m ago · 5 new · 1 notified", plus an issue count when it had errors) that links to `/activity`. The feed shows nothing about the search itself beyond that line.
+- `/activity` — the search, kept apart from the jobs it finds: **Run now** in the title row and the last 10 RUNs with per-platform counts, token usage, errors.
 - `/jobs/$platform/$id` — job detail: full job (description, budget, skills, client stats, external link), our score/verdict/reasoning/risks or filter reason, feedback buttons (same effect as Telegram 👍👎). Right/below: **chat panel** — message list, input, quick-action buttons (*Draft proposal*, *Estimate effort*, *Questions for the client*, *Summarize the job*), copy button on assistant messages, **Reset chat**. Sending disables the input until the reply arrives (a few seconds).
 - App routes (`/profile`, `/settings`, `/jobs`, `/jobs/$platform/$id`) sit under an authenticated layout route; an unauthenticated visitor is redirected to `/`.
-- Header (app layout only): logo, nav (≥ 768 px), and a compact account menu (avatar initial → email + sign out). **Run now** lives in the Jobs page title row and in Settings → Freelancer; a manual run ignores `pollIntervalMinutes` and works even when job search is OFF, so a paused user can still search on demand.
+- Header (app layout only): logo, nav (≥ 768 px), and a compact account menu (avatar initial → email + sign out). **Run now** lives in the Activity page title row and in Settings → Freelancer; a manual run ignores `pollIntervalMinutes` and works even when job search is OFF, so a paused user can still search on demand.
 
 Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No component library.
 
@@ -439,7 +440,7 @@ Stack: TanStack Router (file-based), TanStack Query, TanStack Form, Tailwind. No
 - Single-column layouts; the Jobs feed and Runs list render as cards, never tables; no horizontal scrolling anywhere.
 - The job detail page on a phone is the chat: job summary collapses into an expandable header, the message list fills the viewport, the input and quick-action chips stick to the bottom above the keyboard (`100dvh`, `env(safe-area-inset-bottom)`).
 - Touch targets ≥ 44 px, 16 px base font (prevents iOS zoom on focus), forms with native inputs (`inputmode`, `enterkeyhint`).
-- Bottom navigation bar (Jobs · Profile · Settings) on small screens, header nav on ≥ 768 px.
+- Bottom navigation bar (Jobs · Activity · Profile · Settings) on small screens, header nav on ≥ 768 px.
 - Settings instruction blocks are collapsible so the token inputs are reachable without scrolling past four paragraphs.
 - Installable as a PWA (manifest + icons, `display: standalone`) so it can live on the home screen; no offline mode in v1.
 - Verified on real phone widths (360, 390, 430) before the web plan is considered done.
