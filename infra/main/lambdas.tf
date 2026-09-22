@@ -50,6 +50,7 @@ resource "aws_lambda_function" "api" {
       SSM_PREFIX           = local.ssm_prefix
       API_BASE_URL         = aws_apigatewayv2_api.main.api_endpoint
       POLLER_FUNCTION_NAME = "${var.project}-poller"
+      USER_POOL_ID         = aws_cognito_user_pool.main.id
     }
   }
   depends_on = [aws_cloudwatch_log_group.fn]

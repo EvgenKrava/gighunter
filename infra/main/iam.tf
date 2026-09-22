@@ -36,9 +36,10 @@ data "aws_iam_policy_document" "poller" {
 
 data "aws_iam_policy_document" "api" {
   statement {
-    actions   = concat(local.ddb_rw, ["dynamodb:DeleteItem"])
+    actions   = concat(local.ddb_rw, ["dynamodb:DeleteItem", "dynamodb:BatchWriteItem"])
     resources = local.table_arns
   }
+
   statement {
     actions   = ["ssm:GetParameter", "ssm:PutParameter", "ssm:DeleteParameter"]
     resources = [local.ssm_users_arn]
@@ -97,4 +98,20 @@ resource "aws_iam_role_policy" "fn" {
   name     = "inline"
   role     = aws_iam_role.fn[each.key].id
   policy   = each.value
+}
+
+# Self-serve account deletion: DELETE /me looks the caller up by sub and removes the Cognito user. A separate
+# policy rather than a statement in `api`: the pool depends on the pre-signup Lambda, whose role comes from the
+# same `local.roles` map as the API's, so referencing the pool ARN from there is a cycle.
+data "aws_iam_policy_document" "api_cognito" {
+  statement {
+    actions   = ["cognito-idp:ListUsers", "cognito-idp:AdminDeleteUser"]
+    resources = [aws_cognito_user_pool.main.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "api_cognito" {
+  name   = "cognito"
+  role   = aws_iam_role.fn["api"].id
+  policy = data.aws_iam_policy_document.api_cognito.json
 }
