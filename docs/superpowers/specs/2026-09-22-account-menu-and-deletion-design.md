@@ -18,8 +18,9 @@ delete their account themselves, and Terms / Privacy pages exist and are linked 
 - **Account menu** (`UserMenu`, both headers): email · Profile · Account · Sign out, then a `Terms · Privacy` line.
   Profile leaves the main nav; the mobile bottom bar becomes Jobs · Activity · Settings (`grid-cols-3`).
 - **`/account`** (inside `_app`): "Signed in with Google as <email>" + *Manage Google account* link;
-  **Danger zone** card with *Delete account* → `ConfirmDialog` (danger) → `DELETE /me`. On success: `auth.removeUser()`
-  (local session only — the Cognito user is gone, so the hosted logout endpoint is pointless) and navigate to `/`.
+  **Danger zone** card with *Delete account* → `ConfirmDialog` (danger) → `DELETE /me`. On success: the ordinary
+  `signOut()` (drops the local session and goes through the Cognito logout endpoint, which lands on `/`) — the Cognito
+  user is gone, but its hosted-UI session cookie is not, and leaving it would trip the next "Sign in with Google".
   Errors surface as a toast; the button stays enabled so it can be retried.
 - **`/terms`, `/privacy`**: public static pages (outside `_app`), plain prose components. Landing footer links them.
   Content is drafted from what the code actually does (see below) and is a draft for the owner to review.
@@ -34,15 +35,18 @@ attempt can simply be retried by the still-existing Cognito user:
 2. SSM: delete `telegram/bot-token` and `freelancer/token` (`Secrets.deleteUserSecret` already tolerates absence).
 3. DynamoDB: `Store.deleteUser(userId)` — query `pk = USER#<id>` (keys only, paginated) and `BatchWrite` deletes in
    chunks of 25, retrying `UnprocessedItems`.
-4. Cognito: `AdminDeleteUser` via a new `deleteIdentity(userId)` dep (`@aws-sdk/client-cognito-identity-provider`);
-   `UserNotFoundException` is treated as success.
+4. Cognito: a new `deleteIdentity(userId)` dep (`@aws-sdk/client-cognito-identity-provider`) resolves the username
+   with `ListUsers` filtered by `sub` (a Google-federated user's username is `Google_<google-sub>`, not the JWT sub),
+   then `AdminDeleteUser`; a missing user is treated as success.
 
 Response: `204`. Auth as every other route (JWT sub = the user being deleted; nobody can delete anyone else).
 
 ## Infra (Terraform, `infra/main`)
 
 - API lambda env: `USER_POOL_ID = aws_cognito_user_pool.main.id`.
-- API IAM: `cognito-idp:AdminDeleteUser` on the pool ARN; `dynamodb:BatchWriteItem` on the table.
+- API IAM: `cognito-idp:ListUsers` + `AdminDeleteUser` on the pool ARN (a separate role policy — the pool depends on the
+  pre-signup Lambda whose role shares the API's `for_each`, so the main policy document cannot reference it);
+  `dynamodb:BatchWriteItem` on the table.
 - Owner runs `pnpm build && terraform apply` after merge.
 
 ## Terms / Privacy content (facts the pages state)

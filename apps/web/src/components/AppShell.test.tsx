@@ -22,4 +22,25 @@ describe('AppShell', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: /sign out/i }))
     expect(auth.removeUser).toHaveBeenCalled()
   })
+
+  it('keeps Profile in the account menu, not in the main navigation', async () => {
+    setAuth(mockAuth())
+    renderWithProviders(<AppShell user={{ email: 'me@example.com' }}><p>content</p></AppShell>)
+    expect(screen.queryByRole('link', { name: /profile/i })).not.toBeInTheDocument()
+    await userEvent.click(screen.getAllByRole('button', { name: /account menu/i })[0]!)
+    const profile = screen.getByRole('menuitem', { name: /profile/i })
+    expect(profile).toHaveAttribute('href', '/profile')
+    await userEvent.click(profile)
+    expect(screen.queryByRole('menuitem', { name: /profile/i })).not.toBeInTheDocument()
+  })
+
+  it('account menu offers Account, and links to Terms and Privacy', async () => {
+    setAuth(mockAuth())
+    renderWithProviders(<AppShell user={{ email: 'me@example.com' }}><p>content</p></AppShell>)
+    await userEvent.click(screen.getAllByRole('button', { name: /account menu/i })[0]!)
+    expect(screen.getAllByRole('menuitem').map((m) => m.textContent)).toEqual(['Profile', 'Account', 'Sign out'])
+    expect(screen.getByRole('menuitem', { name: /account/i })).toHaveAttribute('href', '/account')
+    expect(screen.getByRole('link', { name: /terms/i })).toHaveAttribute('href', '/terms')
+    expect(screen.getByRole('link', { name: /privacy/i })).toHaveAttribute('href', '/privacy')
+  })
 })

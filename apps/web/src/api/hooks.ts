@@ -140,6 +140,10 @@ export function useResetChat(ref: MatchRef) {
   const api = useApi(); const qc = useQueryClient()
   return useMutation({ mutationFn: () => api.del<void>(`${refPath(ref)}/chat`), onSuccess: () => qc.invalidateQueries({ queryKey: ['match', ref.platform, ref.externalId] }) })
 }
+export function useDeleteAccount() {
+  const api = useApi()
+  return useMutation({ mutationFn: () => api.del<void>('/me') })
+}
 export function useRunNow() {
   const api = useApi(); const qc = useQueryClient()
   return useMutation({

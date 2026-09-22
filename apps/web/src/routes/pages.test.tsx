@@ -47,10 +47,10 @@ describe('Jobs and Activity pages', () => {
     await screen.findByText(/9 fetched · 2 new · 0 filtered · 2 scored · 1 notified/)
   })
 
-  it('bottom navigation offers Jobs · Activity · Profile · Settings', async () => {
+  it('bottom navigation offers Jobs · Activity · Settings (Profile lives in the account menu)', async () => {
     renderAt('/activity')
     const nav = await screen.findByRole('navigation', { name: /primary/i })
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Jobs', 'Activity', 'Profile', 'Settings'])
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Jobs', 'Activity', 'Settings'])
     expect(within(nav).getByRole('link', { name: 'Activity' })).toHaveAttribute('href', '/activity')
     await waitFor(() => expect(within(nav).getByRole('link', { name: 'Activity' })).toHaveClass('active'))
   })

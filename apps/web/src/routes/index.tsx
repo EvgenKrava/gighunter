@@ -40,7 +40,7 @@ export function Landing() {
         ))}
       </ul>
       <footer className="mt-auto pt-12 text-sm text-slate-500">
-        <a className="underline" href="https://github.com/EvgenKrava/gighunter">GitHub</a> · Invite-only during beta.
+        <a className="underline" href="https://github.com/EvgenKrava/gighunter">GitHub</a> · <Link className="underline" to="/terms">Terms</Link> · <Link className="underline" to="/privacy">Privacy</Link> · Invite-only during beta.
       </footer>
     </main>
   )
