@@ -8,6 +8,13 @@ describe('oidc helpers', () => {
     const c = buildOidcConfig(config)
     expect(c).toMatchObject({ authority: config.cognito.authority, client_id: 'cid', redirect_uri: 'https://app.test/login', response_type: 'code', scope: 'openid email profile', automaticSilentRenew: true, loadUserInfo: false })
   })
+  it('keeps the session in localStorage so an iOS home-screen launch or an evicted tab still has the refresh token', async () => {
+    const store = (buildOidcConfig(config) as { userStore?: { set(k: string, v: string): Promise<void>; remove(k: string): Promise<string | null> } }).userStore!
+    await store.set('k', 'v')
+    expect(localStorage.getItem('oidc.k')).toBe('v')
+    expect(sessionStorage.getItem('oidc.k')).toBeNull()
+    await store.remove('k')
+  })
   it('signinArgs goes straight to Google and carries returnTo', () => {
     expect(signinArgs('/jobs/freelancer/1')).toEqual({ extraQueryParams: { identity_provider: 'Google' }, state: { returnTo: '/jobs/freelancer/1' } })
   })

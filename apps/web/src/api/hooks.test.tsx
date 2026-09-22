@@ -3,7 +3,7 @@ import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SAMPLE_MATCH } from '@gighunter/core/prompts'
 import type { Chat, MatchRef } from '@gighunter/core/schema'
-import { renderWithProviders, setAuth, mockAuth } from '../test/utils'
+import { renderWithProviders, setAuth, mockAuth, expiredAuth } from '../test/utils'
 import { useProfile, useMatches, useMatch, useFeedback } from './hooks'
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -50,16 +50,76 @@ describe('hooks', () => {
     expect(String(fetchFn.mock.calls[0]![0])).toBe('https://api.test/matches?status=notified&limit=30')
     fetchFn.mockRestore()
   })
-  it('signs out on 401', async () => {
-    const auth = mockAuth()
-    setAuth(auth)
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(401, { error: 'unauthorized' }))
-    const assign = vi.fn()
-    Object.defineProperty(window, 'location', { value: { ...window.location, assign, origin: 'https://app.test' }, writable: true })
-    renderWithProviders(<ProfileProbe />)
-    await waitFor(() => expect(auth.removeUser).toHaveBeenCalled())
-    expect(assign).toHaveBeenCalledWith(expect.stringContaining('/logout?client_id=cid'))
-    vi.restoreAllMocks()
+  describe('session renewal', () => {
+    const stubLocation = () => {
+      const assign = vi.fn()
+      Object.defineProperty(window, 'location', { value: { ...window.location, assign, origin: 'https://app.test' }, writable: true })
+      return assign
+    }
+    const bearerOf = (call: unknown[]) => ((call[1] as RequestInit).headers as Record<string, string>).authorization
+
+    it('renews an expired token before the request instead of sending the stale one (page resumed after the token lapsed)', async () => {
+      const auth = expiredAuth()
+      auth.signinSilent.mockResolvedValue({ id_token: 'fresh' })
+      setAuth(auth)
+      const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, { displayName: 'Me' }))
+      renderWithProviders(<ProfileProbe />)
+      await waitFor(() => expect(screen.getByText('Me')).toBeInTheDocument())
+      expect(auth.signinSilent).toHaveBeenCalledTimes(1)
+      expect(fetchFn).toHaveBeenCalledTimes(1)
+      expect(bearerOf(fetchFn.mock.calls[0]!)).toBe('Bearer fresh')
+      fetchFn.mockRestore()
+    })
+    it('on a 401 with a token it believed valid, renews once and retries with the new token', async () => {
+      const auth = mockAuth()
+      auth.signinSilent.mockResolvedValue({ id_token: 'fresh' })
+      setAuth(auth)
+      const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(json(401, { message: 'Unauthorized' })).mockResolvedValueOnce(json(200, { displayName: 'Me' }))
+      const assign = stubLocation()
+      renderWithProviders(<ProfileProbe />)
+      await waitFor(() => expect(screen.getByText('Me')).toBeInTheDocument())
+      expect(bearerOf(fetchFn.mock.calls[0]!)).toBe('Bearer tok')
+      expect(bearerOf(fetchFn.mock.calls[1]!)).toBe('Bearer fresh')
+      expect(auth.removeUser).not.toHaveBeenCalled()
+      expect(assign).not.toHaveBeenCalled()
+      vi.restoreAllMocks()
+    })
+    it('signs out when the renew fails after a 401', async () => {
+      const auth = mockAuth()
+      auth.signinSilent.mockResolvedValue(null)
+      setAuth(auth)
+      const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(401, { message: 'Unauthorized' }))
+      const assign = stubLocation()
+      renderWithProviders(<ProfileProbe />)
+      await waitFor(() => expect(auth.removeUser).toHaveBeenCalled())
+      expect(assign).toHaveBeenCalledWith(expect.stringContaining('/logout?client_id=cid'))
+      expect(fetchFn).toHaveBeenCalledTimes(1)
+      vi.restoreAllMocks()
+    })
+    it('signs out when the renew of an expired token fails, without sending the stale token', async () => {
+      const auth = expiredAuth()
+      auth.signinSilent.mockResolvedValue(null)
+      setAuth(auth)
+      const fetchFn = vi.spyOn(globalThis, 'fetch').mockResolvedValue(json(200, { displayName: 'Me' }))
+      const assign = stubLocation()
+      renderWithProviders(<ProfileProbe />)
+      await waitFor(() => expect(auth.removeUser).toHaveBeenCalled())
+      expect(assign).toHaveBeenCalledWith(expect.stringContaining('/logout?client_id=cid'))
+      expect(fetchFn).not.toHaveBeenCalled()
+      vi.restoreAllMocks()
+    })
+    it('signs out when the retry with a renewed token is still rejected, and does not loop', async () => {
+      const auth = mockAuth()
+      auth.signinSilent.mockResolvedValue({ id_token: 'fresh' })
+      setAuth(auth)
+      const fetchFn = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => json(401, { message: 'Unauthorized' }))
+      stubLocation()
+      renderWithProviders(<ProfileProbe />)
+      await waitFor(() => expect(auth.removeUser).toHaveBeenCalled())
+      expect(fetchFn).toHaveBeenCalledTimes(2)
+      expect(auth.signinSilent).toHaveBeenCalledTimes(1)
+      vi.restoreAllMocks()
+    })
   })
   it('useMatches appends the next page using the encoded cursor', async () => {
     const user = userEvent.setup()

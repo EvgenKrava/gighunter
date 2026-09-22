@@ -15,18 +15,30 @@ const PAGE = 30
 
 export function useApi() {
   const { config } = useRouter().options.context
-  const { user, signOut } = useAuthUser()
+  const { user, renew, signOut } = useAuthUser()
   const token = user?.idToken
+  const expiresAt = user?.expiresAt
   const call = useCallback(
     async <T,>(path: string, init?: ApiInit): Promise<T> => {
-      try {
-        return await apiFetch<T>(config.apiUrl, token, path, init)
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 401) signOut()
-        throw e
+      // A phone suspends the page for hours, so the token in hand is often already expired when the
+      // next request goes out — React Query refetches on focus before oidc-client-ts's renew timer
+      // ticks. Renew first instead of letting the 401 sign the user out; a 401 on a token believed
+      // valid gets one renew and retry too. Only a refresh token that no longer works ends the session.
+      let renewed = expiresAt !== undefined && expiresAt <= Date.now() / 1000
+      let bearer = renewed ? await renew() : token
+      for (;;) {
+        if (renewed && !bearer) { signOut(); throw new ApiError(401, 'session expired') }
+        try {
+          return await apiFetch<T>(config.apiUrl, bearer ?? undefined, path, init)
+        } catch (e) {
+          if (!(e instanceof ApiError && e.status === 401)) throw e
+          if (renewed) { signOut(); throw e }
+          renewed = true
+          bearer = await renew()
+        }
       }
     },
-    [config.apiUrl, token, signOut],
+    [config.apiUrl, token, expiresAt, renew, signOut],
   )
   return useMemo(
     () => ({

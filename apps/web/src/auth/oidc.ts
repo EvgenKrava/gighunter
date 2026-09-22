@@ -1,3 +1,4 @@
+import { WebStorageStateStore } from 'oidc-client-ts'
 import type { AuthProviderProps } from 'react-oidc-context'
 import type { AppConfig } from '../config'
 
@@ -10,6 +11,10 @@ export function buildOidcConfig(config: AppConfig): AuthProviderProps {
     scope: 'openid email profile',
     automaticSilentRenew: true,
     loadUserInfo: false,
+    // The default sessionStorage dies with the tab: iOS starts a home-screen app with a fresh one, and
+    // evicts background tabs, so the 30-day refresh token was lost after a few hours and every return
+    // meant a full sign-in. localStorage keeps it for as long as Cognito honours it.
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
     // Remove ?code=&state= after the callback is processed; the /login route then navigates in-app.
     onSigninCallback: () => window.history.replaceState({}, document.title, '/login'),
   }
